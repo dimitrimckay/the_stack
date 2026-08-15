@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0B0A0C">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>朱 — Stack Log</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -234,7 +237,7 @@ h1,h2{margin:0;}
    STORAGE
    ============================================================ */
 const KEY = "peptide-log-v1";
-const REV = "r6";
+const REV = "r7";
 const store = {
   async load(){
     try{
@@ -3415,6 +3418,36 @@ function migrate(d){
   delete out.peptides;
   return out;
 }
+
+/* ============================================================
+   OFFLINE — service worker registration and update prompt
+   ============================================================ */
+(function(){
+  if(!("serviceWorker" in navigator)) return;
+  if(location.protocol!=="https:"&&location.hostname!=="localhost") return;
+  let reloading=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(reloading) return; reloading=true; location.reload(); });
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      const offer=w=>{
+        UNDO=null;
+        const t=document.getElementById("toast");
+        if(!t) return;
+        clearTimeout(toastTimer);
+        t.innerHTML=`<div class="toast" role="status"><span class="sm">A new version of the app is ready.</span><button class="tiny shu" id="swReload">Reload</button></div>`;
+        const b=document.getElementById("swReload");
+        if(b) b.onclick=()=>{ w.postMessage("skipWaiting"); };
+      };
+      if(reg.waiting&&navigator.serviceWorker.controller) offer(reg.waiting);
+      reg.addEventListener("updatefound",()=>{
+        const w=reg.installing; if(!w) return;
+        w.addEventListener("statechange",()=>{ if(w.state==="installed"&&navigator.serviceWorker.controller) offer(w); });
+      });
+      /* check for a new build each time the app comes back to the foreground */
+      document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") reg.update().catch(()=>{}); });
+    }).catch(()=>{});
+  });
+})();
 
 (async function init(){
   const saved = await store.load();
