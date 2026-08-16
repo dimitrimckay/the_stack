@@ -94,7 +94,7 @@ input.slim{padding:7px 9px;font-size:16px;}
   background-size:34px 17px;border-bottom:1px solid var(--line-2);}
 .rule{height:1px;background:linear-gradient(90deg,var(--shu),rgba(255,90,60,0) 72%);opacity:.7;}
 
-.tabs{display:flex;gap:17px;padding:0 16px;overflow-x:auto;scrollbar-width:none;
+.tabs{display:flex;gap:14px;padding:0 16px;overflow-x:auto;scrollbar-width:none;
   border-bottom:1px solid var(--line-2);}
 .tabs::-webkit-scrollbar{display:none;}
 .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--hai);
@@ -209,6 +209,19 @@ h1,h2{margin:0;}
 .pill{display:inline-block;font-size:12px;padding:5px 9px;border:1px solid var(--line);border-radius:2px;background:rgba(242,237,230,.03);}
 .watch{border-left:2px solid rgba(217,169,74,.45);padding-left:11px;font-size:13px;line-height:1.55;}
 .watch.hot{border-left-color:var(--alert);}
+.lmove{border-left:2px solid var(--line);padding:9px 0 9px 12px;}
+.lmove.up{border-left-color:rgba(255,90,60,.55);}
+.lmove.down{border-left-color:rgba(217,169,74,.55);}
+.lmove.mixed{border-left-color:rgba(150,141,149,.55);}
+.lmove .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+.lmove .mk{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.04em;}
+.lmove .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;flex:none;}
+.lmove p{margin:4px 0 0;font-size:12.5px;line-height:1.55;color:var(--hai);}
+.lmove .yours{margin-top:6px;display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:2px 7px;border-radius:2px;background:rgba(242,237,230,.06);}
+.legal{border-left:2px solid var(--beni);padding-left:11px;font-size:13px;line-height:1.6;}
+.refact{display:flex;gap:8px;margin:2px 0 16px;}
+.refact button{flex:1;}
 .reflist button{display:block;width:100%;text-align:left;border:none;border-radius:0;border-bottom:1px solid var(--line-2);background:none;padding:11px 4px;}
 .reflist button:last-child{border-bottom:none;}
 .name-btn{background:none;border:none;padding:0;color:inherit;font:inherit;text-align:left;
@@ -237,7 +250,7 @@ h1,h2{margin:0;}
    STORAGE
    ============================================================ */
 const KEY = "peptide-log-v1";
-const REV = "r7";
+const REV = "r8";
 const store = {
   async load(){
     try{
@@ -346,7 +359,13 @@ const INTERACTIONS = [
 const PCLASS = {
   glp1:{label:"GLP-1 receptor agonist"},
   ghs:{label:"growth hormone secretagogue"},
-  melanocortin:{label:"melanocortin agonist"}
+  melanocortin:{label:"melanocortin agonist"},
+  gh:{label:"growth hormone"},
+  aas:{label:"injectable anabolic steroid"},
+  aasOral:{label:"oral 17-alpha-alkylated steroid"},
+  ai:{label:"aromatase inhibitor"},
+  serm:{label:"estrogen receptor modulator"},
+  gonadotropin:{label:"gonadotropin"}
 };
 
 /* ============================================================
@@ -409,7 +428,13 @@ const PEP_MED_RULES = [
   {flag:"diabetes",pclass:"glp1",sev:"concern",t:"A GLP-1 alongside insulin or a sulfonylurea significantly raises the risk of hypoglycemia. Medication doses usually need adjusting by the prescriber."},
   {flag:"thyroid",pclass:"glp1",sev:"note",t:"GLP-1s slow stomach emptying, which changes the timing of oral medication absorption — including thyroid medication."},
   {flag:"trt",pclass:"ghs",sev:"note",t:"Growth hormone secretagogues on top of testosterone stack water retention and effects on insulin sensitivity. Worth watching fasting glucose and blood pressure if you're running both."},
-  {flag:"hctHigh",pclass:"ghs",sev:"note",t:"With hematocrit already high, anything that further stimulates red cell production or raises blood viscosity deserves monitoring."}
+  {flag:"hctHigh",pclass:"ghs",sev:"note",t:"With hematocrit already high, anything that further stimulates red cell production or raises blood viscosity deserves monitoring."},
+  {flag:"liver",pclass:"aasOral",sev:"concern",t:"The 17-alpha-alkyl group that lets these survive the first pass through the liver is the same feature that stresses it. With ALT or AST already above range, this combination is the one most likely to be the reason. ALT, AST, GGT, ALP and bilirubin together separate liver strain from ordinary training-related muscle leakage."},
+  {flag:"anticoag",pclass:"aasOral",sev:"concern",t:"17-alpha-alkylated steroids potentiate warfarin and related anticoagulants, sometimes dramatically, by shifting clotting factor synthesis. This is a documented interaction with bleeding consequences, and whoever manages your dosing needs to know."},
+  {flag:"hctHigh",pclass:"aas",sev:"concern",t:"Androgens raise red cell mass directly, and hematocrit is already flagged. This is the marker to have in front of you, along with hemoglobin and ferritin."},
+  {flag:"trt",pclass:"aas",sev:"note",t:"You have testosterone therapy flagged and there is another androgen in the stack. They act on the same receptor and the effects on hematocrit, lipids and blood pressure add up rather than run in parallel."},
+  {flag:"diabetes",pclass:"gh",sev:"concern",t:"Growth hormone directly opposes insulin. Fasting glucose, fasting insulin and HbA1c all move, and medication doses set before it started may no longer fit."},
+  {flag:"bp",pclass:"aas",sev:"note",t:"Androgens raise blood pressure through fluid retention and red cell mass. If yours is being medicated, this belongs in that conversation."}
 ];
 
 /* ============================================================
@@ -447,6 +472,8 @@ const MARKERS = {
   alt:{label:"ALT",unit:"U/L",g:"organ",r:[7,55],alias:"alt \\(sgpt\\)|alt sgpt|sgpt|\\balt\\b"},
   ast:{label:"AST",unit:"U/L",g:"organ",r:[8,48],alias:"ast \\(sgot\\)|ast sgot|sgot|\\bast\\b"},
   ggt:{label:"GGT",unit:"U/L",g:"organ",r:[8,61],alias:"ggt|gamma gt|gamma-glutamyl"},
+  alp:{label:"Alkaline phosphatase",unit:"U/L",g:"organ",r:[44,121],alias:"alkaline phosphatase|alk phos|\\balp\\b"},
+  bili:{label:"Bilirubin, total",unit:"mg/dL",g:"organ",r:[0.1,1.2],alias:"bilirubin, total|total bilirubin|bilirubin"},
   creat:{label:"Creatinine",unit:"mg/dL",g:"organ",r:[0.74,1.35],rf:[0.59,1.04],alias:"creatinine, serum|creatinine"},
   egfr:{label:"eGFR",unit:"mL/min",g:"organ",r:[60,140],alias:"egfr|gfr estimated|estimated gfr"},
   bun:{label:"BUN",unit:"mg/dL",g:"organ",r:[7,20],alias:"bun|urea nitrogen"},
@@ -457,6 +484,11 @@ const MARKERS = {
   testF:{label:"Free testosterone",unit:"pg/mL",g:"horm",r:[46,224],alias:"testosterone, free|free testosterone"},
   e2:{label:"Estradiol",unit:"pg/mL",g:"horm",r:[10,42],rf:[15,350],alias:"estradiol|e2"},
   shbg:{label:"SHBG",unit:"nmol/L",g:"horm",r:[10,57],alias:"shbg|sex hormone binding"},
+  lh:{label:"LH",unit:"IU/L",g:"horm",r:[1.7,8.6],rf:[1.9,12.5],alias:"luteinizing hormone|\\blh\\b"},
+  fsh:{label:"FSH",unit:"IU/L",g:"horm",r:[1.5,12.4],rf:[3.5,12.5],alias:"follicle stimulating hormone|follicle-stimulating|\\bfsh\\b"},
+  prolactin:{label:"Prolactin",unit:"ng/mL",g:"horm",r:[4,15.2],rf:[4.8,23.3],alias:"prolactin|\\bprl\\b"},
+  igf1:{label:"IGF-1",unit:"ng/mL",g:"horm",r:[80,280],alias:"igf-1|igf 1|igf1|insulin.like growth factor[ ,-]*[1i]?\\b|somatomedin"},
+  psa:{label:"PSA, total",unit:"ng/mL",g:"horm",r:[0,4],alias:"psa, total|total psa|prostate specific antigen|prostate-specific antigen|\\bpsa\\b"},
   crp:{label:"hs-CRP",unit:"mg/L",g:"infl",r:[0,3],alias:"hs-crp|hscrp|c-reactive|crp"},
   homocys:{label:"Homocysteine",unit:"umol/L",g:"infl",r:[0,15],opt:[0,10],alias:"homocysteine"},
   ck:{label:"Creatine kinase",unit:"U/L",g:"infl",r:[39,308],alias:"creatine kinase|\\bck\\b|cpk"}
@@ -548,7 +580,21 @@ const LIB = [
   {k:"pep",n:"Melanotan II",dose:250,u:"mcg",freq:"daily",pclass:"melanocortin",research:1},
   {k:"pep",n:"MOTS-c",dose:5,u:"mg",freq:"weekdays",days:[1,4],research:1},
   {k:"pep",n:"5-Amino-1MQ",dose:50,u:"mg",freq:"daily",research:1},
-  {k:"pep",n:"Tesofensine",dose:250,u:"mcg",freq:"daily",research:1}
+  {k:"pep",n:"Tesofensine",dose:250,u:"mcg",freq:"daily",research:1},
+  /* Hormones and anabolics. These carry no starting number on purpose:
+     every one of them is prescription or controlled, the figure belongs to
+     whoever writes it, and a prefilled default would read as a suggestion. */
+  {k:"pep",n:"Somatropin (HGH)",dose:"",u:"iu",freq:"daily",pclass:"gh",noDose:1,alt:"hgh human growth hormone genotropin norditropin omnitrope humatrope saizen"},
+  {k:"pep",n:"Testosterone cypionate",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"test cyp depo-testosterone testosterone enanthate trt"},
+  {k:"pep",n:"Nandrolone decanoate",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"deca durabolin nandrolone npp phenylpropionate"},
+  {k:"pep",n:"Trenbolone acetate",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"tren trenbolone enanthate finaplix"},
+  {k:"pep",n:"Drostanolone propionate",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"masteron drostanolone enanthate"},
+  {k:"pep",n:"hCG",dose:"",u:"iu",freq:"weekdays",days:[1,4],pclass:"gonadotropin",noDose:1,alt:"human chorionic gonadotropin pregnyl novarel ovidrel"},
+  {k:"supp",n:"Oxandrolone",dose:"",u:"mg",t:"morning",food:1,pclass:"aasOral",noDose:1,alt:"anavar oxandrin var"},
+  {k:"supp",n:"Methandienone",dose:"",u:"mg",t:"morning",food:1,pclass:"aasOral",noDose:1,alt:"dianabol dbol methandrostenolone anabol"},
+  {k:"supp",n:"Stanozolol",dose:"",u:"mg",t:"morning",food:1,pclass:"aasOral",noDose:1,alt:"winstrol winny stanabol"},
+  {k:"supp",n:"Anastrozole",dose:"",u:"mg",t:"morning",food:0,pclass:"ai",noDose:1,alt:"arimidex adex aromatase inhibitor"},
+  {k:"supp",n:"Enclomiphene",dose:"",u:"mg",t:"morning",food:0,pclass:"serm",noDose:1,alt:"enclomiphene citrate androxal clomiphene"}
 ];
 
 /* ============================================================
@@ -745,6 +791,8 @@ function scanPanel(text){
         /* skip lines that name a different, easily-confused analyte */
         if(k==="serumIron" && /binding|tibc|uibc|saturation/i.test(ln)) continue;
         if(k==="calciumS" && /score|calcium channel/i.test(ln)) continue;
+        if(k==="insulin" && /growth factor|igf/i.test(ln)) continue;
+        if(k==="testT" && /free|bioavailable|% ?free/i.test(ln)) continue;
         const m = ln.match(re);
         if(!m) continue;
         const v = pickNum(ln.slice(m.index+m[0].length));
@@ -856,6 +904,17 @@ function analyze(){
         `${names.join(" and ")} overlap heavily. Combined, nausea and flushing are more likely.`,names);
   }
 
+  /* 5b — androgens and the GH axis */
+  const androgens = [...(byClass.aas||[]),...(byClass.aasOral||[])];
+  if(androgens.length>1)
+    add("note",`${androgens.length} androgens running together`,
+      `${androgens.join(", ")} all act on the androgen receptor. The effects that show up in bloodwork add together rather than sitting side by side: red cell mass, HDL suppression, and for anything oral, liver enzymes. One panel reads the combined result, so a single compound can't be credited or blamed for a number without changing one thing at a time.`,
+      androgens);
+  if((byClass.gh||[]).length&&(byClass.ghs||[]).length)
+    add("note","Growth hormone alongside a secretagogue",
+      `${(byClass.gh||[]).join(", ")} supplies growth hormone directly. ${(byClass.ghs||[]).join(", ")} ${(byClass.ghs||[]).length>1?"ask":"asks"} the pituitary to release its own. Exogenous GH suppresses that release through feedback, so the secretagogue has less to work with while it's running. IGF-1 is the marker that reflects the total.`,
+      [...(byClass.gh||[]),...(byClass.ghs||[])]);
+
   /* 6 — peptide with medication */
   for(const r of PEP_MED_RULES){
     if(!flags.includes(r.flag)) continue;
@@ -930,6 +989,17 @@ function analyze(){
     add("note",`${research.length} item${research.length>1?"s":""} without established human dosing`,
       `${research.map(i=>i.name).join(", ")} ${research.length>1?"are":"is"} sold for research use, with no approved human dose, no regulated purity standard, and thin safety data. The starting figures this app filled in are commonly circulated numbers, not clinical recommendations.`,
       research.map(i=>i.name));
+
+  /* 11b — androgens and growth hormone without current bloodwork */
+  const hormonal = active.filter(i=>["aas","aasOral","gh"].includes(i.pclass));
+  if(hormonal.length){
+    const Pn = latestPanel();
+    const ageP = Pn?between(Pn.date,today()):null;
+    if(!Pn||ageP>180)
+      add("note","Nothing current to check the hormonal side against",
+        `${hormonal.map(i=>i.name).join(", ")} ${hormonal.length>1?"move":"moves"} numbers this app can read once they exist. ${Pn?`Your most recent panel is from ${Pn.date}, about ${Math.floor(ageP/30)} months back.`:"There's no panel saved yet."} The markers that carry the most information here are hematocrit and hemoglobin, ferritin, HDL and ApoB, ALT and AST, estradiol, total and free testosterone, LH and FSH, and IGF-1 if growth hormone is in the picture. Paste a panel in and every reference page starts showing your own numbers next to what the compound does to them.`,
+        hormonal.map(i=>i.name));
+  }
 
   /* 12 — expired open vials */
   const stale = S.vials.filter(v=>!v.finished&&v.kind!=="container")
@@ -1138,6 +1208,8 @@ async function commit(){
 const STATUS = {
   approved:{label:"Approved for human use",kanji:"承認",col:"var(--shu)"},
   trial:{label:"In human trials",kanji:"治験",col:"var(--kin)"},
+  withdrawn:{label:"Withdrawn from human use",kanji:"廃止",col:"var(--hai)"},
+  vet:{label:"Veterinary use only",kanji:"獣医",col:"var(--hai)"},
   research:{label:"Research use only",kanji:"研究",col:"var(--hai)"}
 };
 const REF = {
@@ -1538,24 +1610,150 @@ const REF = {
  expect:[["Week 1 to 2","Gas or bloating as things shift, then usually settles."],["Week 4 and beyond","Where any symptom change would be judged."]],
  effects:["Gas","Bloating","Rare infection in immunocompromised people"],
  watch:[{t:"With antibiotics, take a few hours apart or the antibiotic kills the probiotic.",flags:["antibiotic"]},{t:"S. boulardii and severe immune suppression or central lines have case reports of bloodstream infection."}],
- markers:[]}
+ markers:[]},
+/* ---- hormones and anabolics --------------------------------------------
+   Same treatment as everything else on this page: what it is, how it works,
+   where the law actually sits, what people report, and then the part this
+   app can do something with, which is the bloodwork. No doses, no protocols,
+   no cycle lengths. Those are not the app's business and never were. ---- */
+
+"Somatropin (HGH)":{t:"drug",aka:"Genotropin, Norditropin, Omnitrope, Humatrope, Saizen, recombinant hGH",cls:"recombinant human growth hormone",status:"approved",half:"About 3 to 4 hours in blood; the IGF-1 rise it causes lasts far longer",route:"Subcutaneous",
+ what:"The same 191 amino acid protein the pituitary makes, grown in bacteria or cell culture. Approved since the mid 1980s for growth hormone deficiency in children and adults, Turner syndrome, Prader-Willi, small for gestational age, short bowel syndrome and HIV-associated wasting. Every use aimed at body composition, recovery or aging sits outside those indications, and in the US that particular off-label territory has a statute written for it specifically.",
+ how:"Binds the growth hormone receptor and signals through JAK2 and STAT5. Most of the growth effect is indirect: the liver answers by producing IGF-1, and IGF-1 does the building. The fat effect is more direct, since growth hormone acts on fat cells to release stored fat while blunting insulin at the same time. That last part is why the metabolic markers move first and most reliably.",
+ legal:"Growth hormone is the one drug in this list with its own criminal statute. Under 21 USC 333(e), distributing it or holding it with intent to distribute for anything other than an approved indication is a federal felony carrying up to five years. It is not a scheduled substance, so it sits outside the controlled substance framework entirely and is treated more harshly than most of what is in it. A prescription for an approved indication is ordinary medicine. A clinic marketing it for aging is the situation the statute was written about. Banned in all tested sport.",
+ expect:[["First week","Fluid arrives early. Rings tighter, ankles puffy, hands stiff or numb overnight. Carpal tunnel symptoms are the classic first complaint and track dose closely."],["Week 2 to 6","The fluid effects either settle or become the reason people reduce. Sleep changes get reported in both directions."],["Month 2 to 6","Trial-measured changes in body composition happen over months and are modest: a few pounds of fat down, lean mass up, some of that lean figure being water. Fasting glucose drifting upward is common across this stretch."],["Long running","Sustained high dose use is where tissue growth stops being cosmetic. Gut distension, jaw and brow changes and enlarged organs are reported in bodybuilding populations, and those changes do not reverse."]],
+ effects:["Water retention","Carpal tunnel symptoms","Joint pain","Numb or tingling hands","Raised blood glucose","Headache","Injection site reaction","Gynecomastia in some"],
+ watch:[{t:"Growth hormone and IGF-1 both tell cells to divide. Active cancer is a contraindication in the labeling, not a caution."},{t:"Insulin resistance is the reliable effect here, not the rare one. Medication doses set before this started may not fit after it.",flags:["diabetes"]},{t:"Fluid retention adds to what testosterone already does, and blood pressure is where the two meet.",flags:["trt","bp"]},{t:"It can unmask a thyroid that was quietly compensating, so TSH and free T4 are worth having on both sides of starting.",flags:["thyroid"]},{t:"This is a counterfeit-heavy market. A generic vial labeled in iu tells you nothing about what is in it, and the price gap between real and fake is the whole business model."}],
+ labs:[{m:"igf1",d:"up",t:"The marker that actually tracks the dose. Growth hormone itself is pulsatile and a single serum draw says close to nothing, so clinics titrate against IGF-1 instead. Reference ranges are age banded, which means a result that reads normal for a 25 year old is high for a 55 year old."},{m:"glucose",d:"up",t:"Rises through direct insulin antagonism, often within the first weeks."},{m:"insulin",d:"up",t:"Fasting insulin climbs before fasting glucose does. Same process, earlier signal."},{m:"a1c",d:"up",t:"A three month average, so it confirms a trend rather than catching one."},{m:"ft4",d:"down",t:"Conversion of T4 to T3 increases, which can expose an underactive thyroid that was compensating on its own."},{m:"trig",d:"down",t:"Lipids generally improve modestly, triglycerides most consistently."}],
+ store:"Refrigerate. Pharmaceutical pens and cartridges carry a brand-specific in-use window, and that window governs over any general rule."},
+
+"Testosterone cypionate":{t:"drug",aka:"Depo-Testosterone, test cyp; testosterone enanthate behaves the same way",cls:"esterified testosterone, androgen receptor agonist",status:"approved",ctrl:"Schedule III",half:"About 8 days for the cypionate ester",route:"Intramuscular or subcutaneous",
+ what:"Testosterone with an eight carbon ester attached so it releases slowly out of an oil depot. FDA approved for male hypogonadism and the most prescribed androgen in the US by a wide margin. Enanthate is the same drug with a slightly shorter ester and behaves interchangeably. It is also the base of nearly every non-medical androgen protocol, which is why an identical vial can be entirely legitimate or entirely not depending on nothing but a prescription.",
+ how:"The ester is cleaved in circulation and the freed testosterone binds the androgen receptor. Two conversions matter as much as the parent compound. Aromatase turns some of it into estradiol, which handles bone, mood, libido and joint comfort and is not a side effect to be eliminated. 5-alpha-reductase turns some into DHT, which drives the scalp, skin and prostate effects. Meanwhile the pituitary reads the level and stops sending LH and FSH, which shuts down your own production and, with it, sperm production.",
+ legal:"Schedule III in the US under the Anabolic Steroid Control Act. With a prescription it is ordinary medicine. Without one, possession is a misdemeanor and distribution a felony, and the same applies to every anabolic on this page. A telehealth prescription is still a prescription, though prescribing standards vary enormously between clinics. Banned in tested sport.",
+ expect:[["Week 1 to 3","Levels are still climbing toward steady state. Early reports are mood and libido, often unstable in the first weeks rather than uniformly improved."],["Week 4 to 6","Roughly where a fixed schedule reaches steady state. This is the earliest a trough draw means anything."],["Week 6 to 12","Strength and lean mass changes become measurable. Acne, oily skin and water retention show up here if they are going to. Testicular volume drops."],["Month 3 onward","Hematocrit is the number still climbing after everything else has settled, which is why it gets rechecked for as long as this runs."]],
+ effects:["Acne","Oily skin","Water retention","Testicular shrinkage","Reduced fertility","Raised hematocrit","Scalp hair loss if predisposed","Gynecomastia","Mood changes","Worsened sleep apnea","Injection site soreness"],
+ watch:[{t:"Rising hematocrit is the most common lab abnormality on testosterone and the one with a hard action threshold. The checker in this app already runs those rules: 52 percent is where clinicians stop ignoring it, 54 is where guidelines call for action.",flags:["hctHigh","trt"]},{t:"Supplemental iron works directly against a hematocrit that testosterone is already pushing up.",flags:["hctHigh","trt"]},{t:"Fertility suppression is the mechanism working, not a rare event. It is usually reversible, but recovery takes months and is not guaranteed. If children are on the plan, that conversation belongs before the first injection."},{t:"Untreated sleep apnea gets worse on androgens. Snoring that arrives with the therapy is worth investigating rather than absorbing.",flags:["bp"]},{t:"Gray market oil is the volume end of the counterfeit trade. Underdosed, mislabeled and non-sterile product all exist, and an abscess is a hospital visit."}],
+ labs:[{m:"testT",d:"up",t:"Draw at trough, right before the next injection, or the number describes the peak instead of the floor. Where it should land is between you and whoever prescribes it."},{m:"hct",d:"up",t:"The one to watch. Androgens raise red cell mass through erythropoietin and suppressed hepcidin, and it keeps drifting for months after everything else has settled."},{m:"hgb",d:"up",t:"Moves with hematocrit and comes on the same panel."},{m:"ferritin",d:"down",t:"Falls as iron is pulled into new red cells. A low ferritin here is not the same finding as a low ferritin without androgens on board."},{m:"e2",d:"up",t:"Rises with dose through aromatization. In men, ask for the sensitive or LC-MS assay, since standard immunoassays are unreliable at male concentrations."},{m:"lh",d:"down",t:"Suppressed to near zero within weeks. This is what confirms the shutdown instead of assuming it."},{m:"fsh",d:"down",t:"Same suppression, and the one that tracks the fertility side."},{m:"shbg",d:"down",t:"Falls, which raises the free fraction. It is why total and free testosterone can tell different stories off the same draw."},{m:"hdl",d:"down",t:"Drops modestly on injectable testosterone. Orals do far worse."},{m:"apob",d:"up",t:"The lipid marker carrying the most information about cardiovascular risk, and the one most often missing from a standard panel."},{m:"psa",d:"up",t:"Usually a small rise as the prostate responds. A sharp jump is a urology question rather than a dose question."}],
+ store:"Oil vials sit at room temperature and stay stable for years, unlike the peptides in this app. Enter one as its total mg in its total mL and the syringe math on the Stock page comes out right: a 10 mL vial at 200 mg/mL is 2000 mg in 10 mL."},
+
+"Nandrolone decanoate":{t:"drug",aka:"Deca-Durabolin, deca; NPP is the same hormone on a short ester",cls:"19-nortestosterone, injectable androgen",status:"approved",ctrl:"Schedule III",half:"About 6 to 12 days for the decanoate ester, with metabolites detectable for many months",route:"Intramuscular",
+ what:"Nandrolone on a long ester. FDA approved for the anemia of chronic kidney disease, an indication that tells you something on its own: it raises red cell production reliably enough to have been prescribed for exactly that. The Deca-Durabolin brand left the US market years ago while generic nandrolone decanoate kept its approval. It is the compound most associated with joint comfort, and also with a specific sexual dysfunction well known enough to have a nickname.",
+ how:"A 19-nortestosterone. Where testosterone gets amplified into DHT by 5-alpha-reductase in scalp and prostate tissue, nandrolone is reduced into a weaker metabolite instead, which is why it is comparatively gentle on hair and prostate. It aromatizes only weakly. What it does do is act on the progesterone receptor, and that progestogenic activity sits behind both the prolactin effects and much of the sexual dysfunction people report even with estradiol sitting in range.",
+ legal:"Schedule III. A prescription product on paper, rarely prescribed in practice. Banned in sport, and worth knowing that its metabolites carry the longest detection window of anything here, up to a year and beyond, which has ended careers on tests taken long after the fact.",
+ expect:[["Week 1 to 3","Slow. The long ester builds over weeks and nothing much happens quickly."],["Week 3 to 6","Joint comfort is the report this compound is known for. Water retention arrives alongside it."],["Week 6 onward","Mass accumulates gradually. Sexual dysfunction, when it shows up, tends to arrive here and does not always track estradiol, which is what makes it confusing to chase."],["After stopping","Recovery of natural production runs slower than with testosterone. Suppression can outlast the last injection by months."]],
+ effects:["Raised prolactin","Sexual dysfunction","Water retention","Raised hematocrit","Mood changes","HDL suppression","Suppressed natural testosterone","Long detection window"],
+ watch:[{t:"Prolactin is the marker that separates a nandrolone problem from an estradiol problem. The two get confused constantly because the symptoms read the same from the inside."},{t:"It raises red cell production reliably. That was the approved use.",flags:["hctHigh","trt"]},{t:"Nandrolone metabolites cross react with some testosterone immunoassays, so a total testosterone result can read higher than the testosterone actually present."},{t:"Suppression of the axis is deeper and longer lasting than testosterone alone, and running it without testosterone alongside is where the sexual side effects concentrate."}],
+ labs:[{m:"prolactin",d:"up",t:"The distinguishing marker for this compound. If libido or erectile function drops while estradiol looks fine, this is the number that has not been checked."},{m:"hct",d:"up",t:"Rises reliably. This was an approved treatment for anemia, which is the same effect viewed from the other side."},{m:"hgb",d:"up",t:"Moves with hematocrit and comes on the same panel. If one is up and the other is not, the draw is more likely the explanation than the compound."},{m:"e2",d:"mixed",t:"Aromatizes only weakly, so estradiol can read low while the effects look estrogenic. The progesterone receptor activity is doing that, and no estradiol number will show it."},{m:"testT",d:"mixed",t:"Assay interference cuts both ways here. Nandrolone suppresses your own testosterone hard while its metabolites can inflate the reading on some immunoassays."},{m:"lh",d:"down",t:"Suppressed, and slower to come back than with testosterone."},{m:"fsh",d:"down",t:"Same, and the one that matters for sperm production."},{m:"hdl",d:"down",t:"Falls, in line with other injectable androgens."}],
+ store:"Oil, room temperature, out of light. Enter the vial as total mg in total mL on the Stock page."},
+
+"Trenbolone acetate":{t:"drug",aka:"tren, Finaplix, Revalor implants; enanthate is the long ester version",cls:"19-nortestosterone, veterinary androgen",status:"vet",ctrl:"Schedule III",half:"Roughly a day for the acetate ester, which is why injection frequency is high",route:"Intramuscular",
+ what:"A cattle growth implant. Trenbolone has never been approved for human use in any country, and there are no human pharmacokinetic or safety studies to consult, so every statement about what it does in people traces back to user reports and cattle data. What sustains it is potency: per unit it is among the strongest androgen receptor agonists available, and the visual effect it produces is the reason people accept the rest of it.",
+ how:"A 19-nortestosterone with two extra double bonds that make it impossible to aromatize and give it very high affinity at the androgen receptor. No estradiol is produced from it at all. It carries progestogenic activity like nandrolone, and it binds the glucocorticoid receptor, which is part of the argument for its effect on fat.",
+ legal:"Schedule III in the US and approved for humans nowhere. The veterinary implant is legal for cattle. Converting it or holding it for human use is not, and unlike testosterone there is no prescription route that makes it legal, because there is no human product to prescribe. Banned in sport.",
+ expect:[["First days","Night sweats and broken sleep are the reports that come up first and most consistently. Some report a short violent cough immediately after injecting."],["Week 1 to 3","Anxiety, irritability and reduced cardiovascular tolerance are common. Conditioning drops noticeably for many people, and it is not subtle."],["Week 3 onward","The visible effects that keep it in circulation. The lipid picture by this point is usually the worst of anything on this page."]],
+ effects:["Night sweats","Insomnia","Anxiety and irritability","Shortness of breath","Cough after injection","Severe HDL suppression","Raised blood pressure","Prolactin effects","Aggression"],
+ watch:[{t:"There is no human safety data. Not thin data, none. Anything presented as a safe way to use it is extrapolation from cattle studies and forum consensus."},{t:"The HDL suppression reported with this compound is the most severe of any commonly used androgen, and it happens fast.",flags:["statin"]},{t:"Reduced cardiovascular capacity is a near universal report and nothing benign explains it.",flags:["bp"]},{t:"Kidney markers frequently read abnormal on trenbolone. Creatinine, BUN and dark urine come up repeatedly, and with no human data there is nothing to interpret those numbers against.",flags:["kidney"]}],
+ labs:[{m:"hdl",d:"down",t:"Falls further and faster than with any other androgen in common use. Single digit results appear in user-posted panels."},{m:"apob",d:"up",t:"The number that carries the risk. If only one lipid marker gets ordered, this is the one worth arguing for."},{m:"ldl",d:"up",t:"Rises alongside ApoB, though on this compound the collapse in HDL is the more dramatic half of the picture and the one that shows up first."},{m:"prolactin",d:"up",t:"Progestogenic activity raises it, same as nandrolone, and the sexual side effects follow the same pattern."},{m:"hct",d:"up",t:"Rises like the rest of the class, and with blood pressure and shortness of breath already common here, viscosity is not a side issue."},{m:"creat",d:"up",t:"Frequently elevated. Some of that is muscle and training, some of it may not be, and there is no human study that separates the two."},{m:"bun",d:"up",t:"Often up alongside creatinine, which is the pattern that sends people to a nephrologist."},{m:"e2",d:"down",t:"It cannot aromatize, so estradiol falls if nothing else is supplying it. A low reading here is the expected consequence, not a target that was hit."}],
+ store:"Oil, room temperature, out of light."},
+
+"Drostanolone propionate":{t:"drug",aka:"Masteron, Masteril, Drolban, drost",cls:"injectable DHT derivative",status:"withdrawn",ctrl:"Schedule III",half:"About 2 days for the propionate ester",route:"Intramuscular",
+ what:"Marketed in the 1960s and 1970s as a breast cancer treatment, working on the same anti-estrogenic logic that later produced the aromatase inhibitors. Long discontinued as a medicine. It survives in the gray market as a cosmetic compound run near a show or a shoot, which describes what it is understood to do: change how tissue looks rather than how much of it there is.",
+ how:"A DHT derivative. It cannot be aromatized, and it competes at the aromatase enzyme itself, so it lowers the estradiol produced from anything running alongside it. High androgenic activity relative to anabolic, which is why the skin, scalp and prostate effects sit at the front of the list.",
+ legal:"Schedule III with no human product on the market anywhere. Everything in circulation is made for the gray market. Banned in sport.",
+ expect:[["Week 1 to 2","Little to report. The propionate ester is short, so levels rise and fall quickly and the injection schedule is frequent."],["Week 2 to 4","The dry, hard appearance it is used for, which is largely a change in water distribution rather than tissue."],["Ongoing","Hair loss and acne are the reports that accumulate, and estradiol keeps drifting down as long as it runs."]],
+ effects:["Scalp hair loss","Acne","Low estradiol symptoms","Joint dryness","Raised hematocrit","HDL suppression","Aggression","Prostate effects"],
+ watch:[{t:"Its anti-estrogenic action stacks with an aromatase inhibitor, and estradiol driven to the floor produces aching joints, flat mood and absent libido that then get blamed on the androgen instead."},{t:"A DHT derivative that is not converted further, so scalp and prostate get the undiluted version of the androgenic effect. Predisposition to male pattern loss is the deciding factor."},{t:"The dry look people are after is partly a diuretic-like shift in water. Blood pressure and hydration are worth watching alongside it.",flags:["bp"]}],
+ labs:[{m:"e2",d:"down",t:"Falls, by design and by mechanism. In men the sensitive assay matters more than usual here, because immunoassays get least reliable exactly at the low end this pushes into."},{m:"hct",d:"up",t:"Rises with the rest of the class. Nothing about this one is gentler on red cell mass than testosterone is."},{m:"hdl",d:"down",t:"Falls, less severely than the orals and more than testosterone alone. Non-aromatizing androgens tend to be harder on HDL than aromatizing ones."},{m:"psa",d:"up",t:"Worth having, since a strongly androgenic non-aromatizing compound is the profile most likely to move it."},{m:"lh",d:"down",t:"Suppressed, and this is rarely run alone, so the panel reads as the sum of whatever else is going in."},{m:"fsh",d:"down",t:"Suppressed alongside LH, which is what the fertility side tracks."},{m:"shbg",d:"down",t:"Falls, which lifts the free fraction of everything else present."}],
+ store:"Oil, room temperature, out of light."},
+
+"Oxandrolone":{t:"drug",aka:"Anavar, Oxandrin, var",cls:"oral 17-alpha-alkylated DHT derivative",status:"approved",ctrl:"Schedule III",half:"About 9 hours",route:"Oral",
+ what:"An oral steroid approved in 1964 and still an approved product for regaining weight after surgery, trauma, chronic infection or long term corticosteroid use. The strongest evidence sits in severe burn patients, where it reliably improves lean mass recovery. The Oxandrin brand left the US market and generic oxandrolone stayed. Its reputation as the mild one is about androgenic side effects only. The lipid and liver picture is not mild at all, and that is the part a panel can see.",
+ how:"A DHT derivative with a 17-alpha-alkyl group added so it survives the first pass through the liver. That single modification is what makes an oral steroid possible and what makes it hepatic. It does not aromatize, so it produces no estradiol of its own, and it drops SHBG hard, which changes how every other hormone result on the panel reads.",
+ legal:"Schedule III, prescription only, and legitimately prescribed in burn and trauma medicine. Banned in sport. It is also among the most counterfeited compounds in this category, commonly substituted with something cheaper and more androgenic, which is a particular problem for the women who choose it specifically to avoid that.",
+ expect:[["First 2 weeks","Strength and pumps are the usual early reports. Nothing visible yet."],["Week 2 to 6","Lipid changes are well established by here even though nothing feels different. Muscle fullness and vascularity are the common reports."],["Beyond","Appetite suppression and joint dryness get reported. Whatever the timeline, the liver and lipid numbers are the part with actual data behind them."]],
+ effects:["Suppressed HDL","Raised liver enzymes","Appetite suppression","Joint dryness","Acne","Suppressed natural testosterone","Raised blood pressure","Headache"],
+ watch:[{t:"HDL suppression on oral steroids is not subtle. Halving is typical and it happens within weeks, long before anything is felt.",flags:["statin"]},{t:"The 17-alpha-alkyl group is a liver stressor. Enzymes rising while nothing feels wrong is the normal presentation, which is the argument for measuring rather than waiting for a symptom.",flags:["liver"]},{t:"17-alpha-alkylated steroids potentiate warfarin and similar anticoagulants substantially.",flags:["anticoag"]},{t:"Creatine kinase runs high in anyone lifting, and training alone raises ALT and AST. GGT and ALP come from the liver and not from muscle, so ordering them alongside is what separates the two explanations."}],
+ labs:[{m:"hdl",d:"down",t:"The headline effect. Reductions of half or more are routine on oral steroids and this one is no exception despite its reputation."},{m:"apob",d:"up",t:"Rises. Ask for it, since a standard lipid panel will not include it."},{m:"ldl",d:"up",t:"Rises alongside ApoB. The HDL collapse gets the attention, but both ends of the panel move on an oral."},{m:"alt",d:"up",t:"Expected rather than exceptional. Interpret it next to GGT and creatine kinase, not on its own."},{m:"ast",d:"up",t:"Rises with ALT, and shares the same ambiguity with muscle."},{m:"ggt",d:"mixed",t:"Often stays in range, which is the point of ordering it. Liver produces GGT and muscle does not, so a normal GGT with high ALT and AST points somewhere other than the liver."},{m:"shbg",d:"down",t:"Drops steeply. That inflates free testosterone and makes total testosterone look worse than the free number suggests, so both are needed to read the panel correctly."},{m:"testT",d:"down",t:"Falls, since the axis shuts down as it does with any androgen, and the low SHBG makes the total look worse than the free number does."},{m:"lh",d:"down",t:"Suppressed, which is the confirmation that shutdown has happened rather than an assumption that it has."}],
+ store:"Tablets at room temperature and dry. Track a bottle as a container with a serving count on the Stock page."},
+
+"Methandienone":{t:"drug",aka:"Dianabol, dbol, methandrostenolone, anabol",cls:"oral 17-alpha-alkylated testosterone derivative",status:"withdrawn",ctrl:"Schedule III",half:"About 3 to 6 hours",route:"Oral",
+ what:"The first anabolic steroid designed for performance rather than for medicine, synthesized by Ciba in the late 1950s and sold as Dianabol for osteoporosis and burn recovery. The FDA withdrew approval in the 1980s and there has been no legal human product in the US since. Everything in circulation now is made for the gray market.",
+ how:"17-alpha-alkylated so it survives oral dosing, with the liver consequences that implies. It does aromatize, but into methylestradiol rather than estradiol, and that distinction matters in practice: aromatase inhibitors control it poorly and standard estradiol assays may not read it at all. So the estrogenic effects can be obvious while the number on the panel looks unremarkable.",
+ legal:"Schedule III with no approved human product in the US. Approval was withdrawn on grounds that included a lack of demonstrated benefit for the indications it was sold under. Banned in sport.",
+ expect:[["First week","Weight moves fast, and most of it is water and intracellular glycogen. Strength climbs quickly. Blood pressure usually climbs with it."],["Week 2 to 4","Where liver enzymes are typically already up on a panel and the lipid picture has deteriorated, generally with nothing felt at all."],["After stopping","Much of the weight leaves as fast as it arrived, which is where the rebound reports come from."]],
+ effects:["Rapid water retention","Raised blood pressure","Raised liver enzymes","Gynecomastia","HDL suppression","Headache","Acne","Increased appetite","Mood changes"],
+ watch:[{t:"Liver enzyme elevation is expected on this compound rather than exceptional, and it is silent until it is not.",flags:["liver"]},{t:"Methylestradiol is not the estradiol your lab measures. A normal estradiol result alongside obvious estrogenic effects is the known pattern here, and treating the number instead of the effect goes wrong in both directions."},{t:"Blood pressure moves early, mostly through fluid. It is one of the few effects here you can actually track at home daily, and this app takes the readings.",flags:["bp"]},{t:"17-alpha-alkylated steroids potentiate warfarin and similar anticoagulants.",flags:["anticoag"]}],
+ labs:[{m:"alt",d:"up",t:"Rises, often substantially and often within the first weeks."},{m:"ast",d:"up",t:"Rises with ALT, and training raises both on its own, which is why neither settles the question alone."},{m:"ggt",d:"mixed",t:"Frequently stays in range even when ALT and AST are well up. That combination is what makes the muscle-versus-liver question worth asking rather than assuming."},{m:"bili",d:"up",t:"Total bilirubin rising is the finding that shifts this from routine to urgent, since it points at cholestasis rather than enzyme leakage."},{m:"hdl",d:"down",t:"Falls sharply, as with any oral in this class."},{m:"apob",d:"up",t:"Rises, and it is the marker worth asking for by name, since a standard lipid panel leaves it off."},{m:"hct",d:"up",t:"Rises, and the fluid retention this compound is known for stacks with it on blood pressure."},{m:"e2",d:"mixed",t:"An unreliable reading on this compound specifically. Methylestradiol drives the effects while sitting outside what the assay is built to detect."}],
+ store:"Tablets at room temperature and dry. Track a bottle as a container with a serving count on the Stock page."},
+
+"Stanozolol":{t:"drug",aka:"Winstrol, winny, stanabol",cls:"17-alpha-alkylated DHT derivative, oral or injectable",status:"withdrawn",ctrl:"Schedule III",half:"About 9 hours oral, roughly a day for the injectable suspension",route:"Oral or intramuscular",
+ what:"Approved as Winstrol for hereditary angioedema and, earlier, for anemia. Withdrawn from the US human market in the early 2000s, with the veterinary product persisting in some countries. Its lasting fame comes from the 1988 Olympics. The unusual thing about it is structural: the injectable form is 17-alpha-alkylated too, so unlike every other injectable here, putting it in a syringe does nothing to spare the liver.",
+ how:"A DHT derivative rebuilt with a pyrazole ring and 17-alpha-alkylated. It does not aromatize. It lowers SHBG more sharply than almost anything else in circulation, which raises the free fraction of everything else present. The joint discomfort people report is usually put down to that combination plus the absence of estrogen.",
+ legal:"Schedule III with no approved human product in the US. Banned in sport, where it remains one of the most frequently detected substances.",
+ expect:[["First week","Strength reports come early. So does the dry appearance it is used for."],["Week 2 to 4","Joint and tendon discomfort is the complaint that defines this compound. Lipids by now have moved considerably."],["Ongoing","Tendon complaints accumulate, and the combination of rapid strength gain with less pliable connective tissue is the mechanism people describe behind tendon injuries."]],
+ effects:["Joint pain and dryness","Tendon complaints","Raised liver enzymes","Severe HDL suppression","Acne","Scalp hair loss","Raised blood pressure"],
+ watch:[{t:"The injectable version is 17-alpha-alkylated as well. Anyone assuming the injection protects the liver is working from a rule that holds for every compound here except this one.",flags:["liver"]},{t:"Lipid changes on stanozolol are the most severe of the common orals, and they arrive quickly.",flags:["statin"]},{t:"17-alpha-alkylated steroids potentiate warfarin and similar anticoagulants.",flags:["anticoag"]},{t:"Tendon and joint complaints are the signature here, and they arrive alongside strength gains that make the tissue more likely to be tested."}],
+ labs:[{m:"hdl",d:"down",t:"Falls hardest of the commonly used orals. Values in the teens appear in published case reports."},{m:"apob",d:"up",t:"Rises, and against an HDL this low the whole lipid panel is the finding rather than any single line on it."},{m:"ldl",d:"up",t:"Rises alongside ApoB, though the fall in HDL is the larger movement."},{m:"alt",d:"up",t:"Rises, and the injectable route does not change that, because the injectable is alkylated too."},{m:"ast",d:"up",t:"Rises with ALT. Order GGT alongside if you want to know whether the liver or the training is responsible."},{m:"bili",d:"up",t:"Worth ordering. Cholestatic injury has been reported with this compound specifically."},{m:"shbg",d:"down",t:"Drops further than almost anything else, which distorts every hormone result on the same panel."},{m:"testT",d:"down",t:"Falls with axis suppression, and the very low SHBG distorts how that total reads against the free number."},{m:"lh",d:"down",t:"Suppressed, and slow to recover in proportion to how long this ran."}],
+ store:"Tablets at room temperature and dry. The aqueous suspension is refrigerated and separates, which is why it needs shaking."},
+
+"Anastrozole":{t:"drug",aka:"Arimidex, adex",cls:"non-steroidal aromatase inhibitor",status:"approved",half:"About 46 hours",route:"Oral",
+ what:"Approved in 1995 for hormone receptor positive breast cancer in postmenopausal women, where it is a serious and thoroughly studied drug. It is not approved for men, not approved for managing estrogen on testosterone therapy, and not approved for anything to do with fertility. That off-label use is the reason it turns up in a stack like this one, usually alongside testosterone and often without a number to justify it.",
+ how:"Reversibly blocks aromatase, the enzyme that converts testosterone into estradiol. Less estradiol means less negative feedback at the pituitary, so in a man whose axis is still running, LH and testosterone rise as well. The effect is dose proportional, and in men, easy to overshoot by a wide margin.",
+ legal:"Prescription only and not a controlled substance. Widely dispensed by the same telehealth clinics that prescribe testosterone. The liquid sold on the research chemical market is not a pharmaceutical product and is not the same thing as a prescription.",
+ expect:[["First days","Nothing felt. The half-life is long enough that effects accumulate over days rather than landing at once."],["Week 1 to 3","If estradiol has been pushed too low, this is when it announces itself. Joints ache, libido flattens, mood goes gray, sleep degrades. Those are the same complaints people attribute to high estrogen, which is precisely the problem."],["Long running","Estrogen maintains bone in men as much as in women. Sustained suppression without a reason has a cost measured in bone density rather than in how any given week feels."]],
+ effects:["Joint pain","Low libido","Low mood","Fatigue","Dry skin","Headache","Raised total testosterone","Bone density loss over time"],
+ watch:[{t:"The symptoms of low estradiol and high estradiol overlap almost completely. Without a sensitive assay, dosing by feel is guessing between two opposite directions and acting on the answer."},{t:"Estradiol in men is not a waste product. It handles bone density, joint comfort, libido, lipids and cognition, and the trial evidence for suppressing it in men without gynecomastia is thin."},{t:"HDL falls when estradiol is suppressed, which works against the reason many people are watching their lipids in the first place.",flags:["statin"]},{t:"Taken alongside a compound that is already anti-estrogenic, the two effects stack and the floor arrives faster than expected."}],
+ labs:[{m:"e2",d:"down",t:"The whole point of the drug and the only way to know what it is doing. In men, insist on the sensitive or LC-MS assay: the standard immunoassay is least accurate exactly in the range this drug pushes into."},{m:"testT",d:"up",t:"Rises in men with an intact axis, since less estradiol means less feedback. In someone already on exogenous testosterone that feedback loop is off and this will not happen."},{m:"lh",d:"up",t:"Rises for the same reason, when the pituitary is still in the loop."},{m:"fsh",d:"up",t:"Rises alongside LH when the pituitary is still in the loop, and stays flat when exogenous testosterone has already switched it off."},{m:"hdl",d:"down",t:"Falls with estradiol. Worth pairing with ApoB rather than reading alone."},{m:"shbg",d:"down",t:"Falls, since estradiol is a driver of SHBG production. That raises the free fraction and shifts how the rest of the panel reads."}],
+ store:"Tablets at room temperature. Track a bottle as a container with a serving count on the Stock page."},
+
+"Enclomiphene":{t:"drug",aka:"enclomiphene citrate, Androxal, the trans isomer of clomiphene",cls:"selective estrogen receptor modulator",status:"trial",half:"About 10 hours, far shorter than the zuclomiphene isomer it is separated from",route:"Oral",
+ what:"Clomiphene citrate is a mixture of two isomers. Enclomiphene is the one that raises testosterone. Zuclomiphene is the long lived one blamed for the mood and visual side effects. Repros Therapeutics took enclomiphene through phase 3 as Androxal for secondary hypogonadism and did not obtain approval. So clomiphene itself is an approved drug prescribed off label to men every day, while the cleaner isomer is not an approved product anywhere and arrives through compounding pharmacies and the research chemical market.",
+ how:"Blocks estrogen receptors at the hypothalamus and pituitary. The brain reads that as low estrogen, stops throttling back, and releases more LH and FSH, which tells the testes to make more testosterone. That is the whole appeal against exogenous testosterone: the axis stays switched on and fertility is preserved instead of suppressed.",
+ legal:"Not controlled and not approved. Compounded versions occupy a regulatory gray area, and the vials sold as research liquid are not pharmaceutical products at all. Its parent drug, clomiphene, is prescription and approved for ovulation induction in women.",
+ expect:[["Week 1 to 2","LH and FSH respond quickly and testosterone follows. Some people notice it, many notice nothing for a while."],["Week 4 to 6","Far enough in for a panel to be informative. Testosterone and estradiol will both have moved."],["Ongoing","SHBG tends to climb, which is why total testosterone can look impressive on paper while free testosterone and how you actually feel lag behind it."]],
+ effects:["Mood changes","Headache","Visual disturbance","Hot flashes","Raised estradiol","Nausea"],
+ watch:[{t:"Visual disturbances are documented for clomiphene, including blurred vision and persistent after-images. They generally reverse on stopping, and they are treated as a reason to stop rather than something to push through."},{t:"Rising testosterone means rising estradiol, since more substrate reaches aromatase. Both belong on the same panel."},{t:"It only works if the pituitary and testes can still respond. In primary testicular failure there is nothing at the far end to answer the signal, which is why the diagnosis matters before the drug does."}],
+ labs:[{m:"lh",d:"up",t:"The mechanism made visible, and the first thing to move. If LH has not risen, nothing downstream will."},{m:"fsh",d:"up",t:"Rises with LH, and it is the one that tracks the fertility side."},{m:"testT",d:"up",t:"Follows LH by a couple of weeks. This is your own production, not a replacement, so it does not suppress anything."},{m:"e2",d:"up",t:"Rises along with testosterone. Expected rather than alarming, and the reason people reach for an aromatase inhibitor they may not need."},{m:"shbg",d:"up",t:"Climbs, which blunts the free testosterone gain relative to the total. It is why total testosterone alone overstates the result."},{m:"hct",d:"mixed",t:"Usually moves less than with exogenous testosterone, since the rise is your own and more gradual. Still worth watching."}],
+ store:"Tablets or compounded capsules at room temperature. Track a bottle as a container with a serving count on the Stock page."},
+
+"hCG":{t:"drug",aka:"human chorionic gonadotropin, Pregnyl, Novarel, Ovidrel",cls:"gonadotropin, LH receptor agonist",status:"approved",half:"About 24 to 36 hours",route:"Subcutaneous or intramuscular",
+ what:"A glycoprotein hormone produced in pregnancy, purified from urine or made recombinant. Approved for prepubertal cryptorchidism, hypogonadotropic hypogonadism in males, and ovulation induction in women. In men on testosterone it is used off label to keep the testes working while the pituitary signal is switched off, and in fertility protocols to restart production afterward.",
+ how:"Close enough to LH in structure to bind the same receptor on Leydig cells, and it lasts far longer than LH does. That drives testosterone production inside the testis, which is what maintains testicular volume and supports sperm production. Intratesticular testosterone runs at many times blood concentration, and a lot of it aromatizes locally, which is why estradiol tends to rise more than the testosterone number would lead you to expect.",
+ legal:"Prescription only and not a controlled substance in the US. The FDA has acted specifically against the weight loss protocols built around it, and those uses are explicitly unapproved. Banned for men in tested sport, since the resulting profile looks the same as taking testosterone.",
+ expect:[["First week","Testicular volume responds quickly and is the most visible effect."],["Week 2 to 4","Estradiol rises, sometimes enough to notice. If gynecomastia is going to appear, this is a common trigger for it."],["Ongoing","Prolonged use at high doses can desensitize the Leydig cells, which is the argument for keeping it low rather than high."]],
+ effects:["Raised estradiol","Gynecomastia","Testicular sensitivity","Water retention","Mood changes","Acne","Injection site reaction"],
+ watch:[{t:"hCG cross reacts with LH immunoassays. A panel drawn while it is running can show an LH that looks preserved when your own pituitary output is completely suppressed. The same interference makes a pregnancy test positive."},{t:"Estradiol rises out of proportion to the testosterone change, because most of the aromatization is happening inside the testis rather than in fat."},{t:"Urine derived product is a counterfeit-heavy market, and a dose expressed in iu tells you nothing about what is actually in the vial."}],
+ labs:[{m:"testT",d:"up",t:"Rises, and in someone not on exogenous testosterone the rise is entirely their own production."},{m:"e2",d:"up",t:"The marker that moves most and most unexpectedly. Local aromatization in the testis is doing it, and it explains gynecomastia appearing after adding hCG to a stable protocol."},{m:"lh",d:"mixed",t:"Not readable while this is running. The assay cannot tell hCG from LH, so the result reflects the drug rather than the pituitary."},{m:"fsh",d:"down",t:"Unaffected by hCG directly, so it stays suppressed if exogenous testosterone is suppressing it. That is the honest read on the fertility side."},{m:"hct",d:"up",t:"Can rise modestly through the testosterone it produces."}],
+ store:"Comes as a powder with a diluent. Once reconstituted it behaves like the other peptides in this app: refrigerate, protect from light, and set a use-by window on the Stock page."}
 };
-/* peptide entries answer to name and to LIB alt keywords; supps answer to nutrient key */
+/* Peptide and hormone entries answer to their name and to the aka list.
+   Supplements answer to a nutrient key. Orals like oxandrolone are stored
+   as supplements but named, so they match on name before nutrient. */
 function refFor(it){
   if(!it) return null;
-  if(isPep(it)){
-    const n=String(it.name).trim().toLowerCase();
-    for(const k of Object.keys(REF)){ if(REF[k].t==="pep"&&k.toLowerCase()===n) return k; }
+  const n=String(it.name||"").trim().toLowerCase();
+  if(n){
+    for(const k of Object.keys(REF)){ if(REF[k].t!=="supp"&&k.toLowerCase()===n) return k; }
     for(const k of Object.keys(REF)){
-      const e=REF[k]; if(e.t!=="pep") continue;
+      const e=REF[k]; if(e.t==="supp") continue;
       const aka=String(e.aka||"").toLowerCase();
       if(aka.split(",").some(a=>a.trim()&&a.trim()===n)) return k;
     }
-    return null;
   }
+  if(isPep(it)) return null;
   return it.nutrient&&REF[it.nutrient]?it.nutrient:null;
 }
-const refTitle = k => REF[k].t==="pep"?k:REF[k].name;
+const refTitle = k => REF[k].t==="supp"?REF[k].name:k;
+const refKind = k => REF[k].t==="pep"?"peptide":REF[k].t==="drug"?"hormone":"supplement";
+/* the library row a reference page can prefill from, when there is exactly one */
+function libForRef(k){
+  const e=REF[k]; if(!e) return null;
+  if(e.t==="supp"){ const hits=LIB.filter(x=>x.nut===k); return hits.length===1?hits[0]:null; }
+  const t=String(k).toLowerCase();
+  const aka=String(e.aka||"").toLowerCase().split(",").map(x=>x.trim()).filter(Boolean);
+  return LIB.find(x=>x.n.toLowerCase()===t)||LIB.find(x=>aka.includes(x.n.toLowerCase()))||null;
+}
 
 /* ============================================================
    R5 — time, titration, calendar, body, templates, site map
@@ -1788,48 +1986,46 @@ function modalBody(){
     <div class="eyebrow plain mb4">Whatever units you use, stay consistent &mdash; the chart only cares about the shape.</div>
     <button class="shu wide" data-act="saveBody">Save entry</button></div>`;
 }
-function modalRef(){
-  const k=UI.refKey, e=REF[k];
-  if(!e) return `<div>${sheetHead("Reference","参照")}<div class="sm muted">No entry.</div></div>`;
-  const pep=e.t==="pep";
-  const st=pep?STATUS[e.status]:null;
+function refDetail(k){
+  const e=REF[k];
+  const named=e.t!=="supp";
+  const st=STATUS[e.status];
   const flags=S.profile?.flags||[];
   const inStack=S.items.filter(i=>refFor(i)===k);
-  const back=UI.refFrom==="list"?`<button class="icon none" data-act="refList" aria-label="Back to list">&#8249;</button>`:"";
-  let h=`<div>
-    <div class="row between center mb1">
-      <div class="row center gap2" style="min-width:0">${back}
-        <div style="min-width:0"><div class="eyebrow">参照 &middot; ${pep?"peptide":"supplement"} reference</div>
-        <div class="display" style="font-size:22px;line-height:1.2">${esc(refTitle(k))}</div></div></div>
-      <button class="icon none" data-act="close" aria-label="Close">&#10005;</button>
-    </div><div class="rule mb3"></div>`;
-  if(pep){
+  const lib=libForRef(k);
+  let h="";
+  if(named){
     h+=`<div class="row gap2 wrapf center mb3">
       <span class="stchip" style="color:${st.col}">${st.kanji} ${st.label}</span>
+      ${e.ctrl?`<span class="stchip" style="color:var(--alert)">規制 ${esc(e.ctrl)}</span>`:""}
       <span class="eyebrow plain">${esc(e.cls)}</span></div>
     ${e.aka?`<div class="eyebrow plain mb3">Also: ${esc(e.aka)}</div>`:""}
-    <div class="card flat pad2 mb4 row gap3">
+    <div class="card flat pad2 mb3 row gap3">
       <div class="stat"><div class="eyebrow">Half-life</div><div class="sm" style="margin-top:3px">${esc(e.half)}</div></div>
       <div class="stat"><div class="eyebrow">Route</div><div class="sm" style="margin-top:3px">${esc(e.route)}</div></div>
     </div>`;
   }else{
     const nut=NUTRIENTS[k];
     const total=nutrientTotals().find(t=>t.key===k);
-    h+=`<div class="card flat pad2 mb4 row gap3">
+    h+=`<div class="card flat pad2 mb3 row gap3">
       ${stat("Upper limit",nut&&nut.ul?`${nut.ul} ${nut.unit}`:"none set",nut&&nut.note?esc(nut.note):"")}
       ${stat("You take",total?`${trim(total.total)} ${nut.unit}`:"—",total?`${total.items.length} source${total.items.length>1?"s":""}`:"not in stack")}
     </div>`;
   }
+  h+=refActions(k,inStack,lib);
   const sec=(kanji,label,body)=>`<div class="slot" style="margin:14px 0 8px"><span class="k">${kanji}</span><span class="l">${label}</span><span class="r"></span></div>${body}`;
   h+=sec("何","what it is",`<p class="sm" style="margin:0;line-height:1.6">${esc(e.what)}</p>`);
   h+=sec("機","how it works",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.how)}</p>`);
-  if(!pep){
+  if(e.legal) h+=sec("法","where the law sits",`<div class="legal">${esc(e.legal)}</div>`);
+  if(!named){
     if(e.forms) h+=sec("形","forms",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.forms)}</p>`);
     if(e.lack) h+=sec("欠","if you're low",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.lack)}</p>`);
   }
   if(e.expect&&e.expect.length)
     h+=sec("経","what people report, and when",`<div class="tl">${e.expect.map(([w,t])=>
       `<div><div class="mono eyebrow plain" style="color:var(--shu)">${esc(w)}</div><div class="sm" style="line-height:1.55">${esc(t)}</div></div>`).join("")}</div>`);
+  if(e.labs&&e.labs.length)
+    h+=sec("血","what it moves in bloodwork",labMoves(e));
   if(e.effects&&e.effects.length)
     h+=sec("副","reported effects",`<div class="row gap2 wrapf">${e.effects.map(x=>`<span class="pill">${esc(x)}</span>`).join("")}</div>`);
   if(e.watch&&e.watch.length)
@@ -1846,48 +2042,109 @@ function modalRef(){
       return `<div class="row between center mb2"><span class="sm">${esc(it.name)} &middot; ${it.dose} ${esc(it.unit)}</span><span class="eyebrow plain">day ${el} &middot; ${n} logged</span></div>`;
     }).join("");
   }
-  if(!pep&&e.markers&&e.markers.length){
+  const mk2=e.markers&&e.markers.length?e.markers:(e.labs||[]).map(x=>x.m);
+  if(mk2.length&&!(e.labs&&e.labs.length)){
     const P=latestPanel();
     if(P){
-      const rows=e.markers.filter(m=>P.m&&P.m[m]!=null).map(m=>{
+      const rows=mk2.filter(m=>MARKERS[m]&&P.m&&P.m[m]!=null).map(m=>{
         const mk=MARKERS[m], v=Number(P.m[m]), st2=mStatus(m,v), [lo,hi]=mRange(mk);
         return `<div class="row between center mb1"><span class="sm">${esc(mk.label)}</span>
           <span class="data" style="color:${st2==="in"?"var(--washi)":"var(--alert)"}">${trim(v)} ${esc(mk.unit)} <span class="eyebrow plain">${trim(lo)}–${trim(hi)} &middot; ${st2==="in"?"in range":st2}</span></span></div>`;
       });
       if(rows.length) mine+=`<div class="eyebrow mb1" style="margin-top:8px">Your ${P.date} labs</div>`+rows.join("");
-      else mine+=`<div class="eyebrow plain" style="margin-top:8px">Your ${P.date} panel doesn't include ${e.markers.map(m=>MARKERS[m].label).join(", ")}.</div>`;
-    }else mine+=`<div class="eyebrow plain" style="margin-top:8px">The marker${e.markers.length>1?"s":""} that would tell you what this is doing: ${e.markers.map(m=>MARKERS[m].label).join(", ")}. Add bloodwork and it shows here.</div>`;
+      else mine+=`<div class="eyebrow plain" style="margin-top:8px">Your ${P.date} panel doesn't include ${mk2.map(m=>MARKERS[m].label).join(", ")}.</div>`;
+    }else mine+=`<div class="eyebrow plain" style="margin-top:8px">The marker${mk2.length>1?"s":""} that would tell you what this is doing: ${mk2.map(m=>MARKERS[m].label).join(", ")}. Add bloodwork and it shows here.</div>`;
   }
   if(mine) h+=sec("己","in your data",`<div class="card gold pad2">${mine}</div>`);
-  h+=`<div class="eyebrow plain" style="margin-top:18px;line-height:1.6">Descriptive, not a recommendation. Doses, cycles, and combinations are yours to settle with a clinician or pharmacist. Where the evidence is thin this page says so, and thin evidence is a fact about the compound, not a gap in the app.</div></div>`;
+  h+=`<div class="eyebrow plain" style="margin-top:18px;line-height:1.6">Descriptive, not a recommendation. Doses, cycles, and combinations are yours to settle with a clinician or pharmacist. Where the evidence is thin this page says so, and thin evidence is a fact about the compound, not a gap in the app.</div>`;
   return h;
 }
-function modalRefList(){
+/* the bloodwork block: what the compound moves, and your own number beside it */
+function labMoves(e){
+  const P=latestPanel();
+  const rows=(e.labs||[]).filter(x=>MARKERS[x.m]).map(x=>{
+    const mk=MARKERS[x.m];
+    const arrow=x.d==="up"?"▲ raises":x.d==="down"?"▼ lowers":"◆ distorts";
+    let yours="";
+    if(P&&P.m&&P.m[x.m]!=null){
+      const v=Number(P.m[x.m]), st=mStatus(x.m,v), [lo,hi]=mRange(mk);
+      yours=`<span class="yours" style="color:${st==="in"?"var(--hai)":"var(--alert)"}">yours ${trim(v)} ${esc(mk.unit)} &middot; ${trim(lo)}–${trim(hi)} &middot; ${st==="in"?"in range":st}</span>`;
+    }
+    return `<div class="lmove ${x.d}">
+      <div class="hd"><span class="mk">${esc(mk.label)}</span><span class="ar" style="color:${x.d==="up"?"var(--shu)":x.d==="down"?"var(--kin)":"var(--hai)"}">${arrow}</span></div>
+      <p>${esc(x.t)}</p>${yours}</div>`;
+  }).join("");
+  const P2=P?"":`<div class="eyebrow plain" style="margin-top:10px;line-height:1.6">No panel saved yet. Paste one into Bloodwork and your own numbers appear against each line above.</div>`;
+  return `<div>${rows}</div>${P2}`;
+}
+function refActions(k,inStack,lib){
+  const e=REF[k];
+  const btns=[];
+  if(!inStack.length) btns.push(`<button class="shu" data-act="refAdd:${esc(k)}">＋ Add to stack</button>`);
+  else{
+    btns.push(`<button class="primary" data-act="refStock:${esc(inStack[0].id)}">＋ Add stock</button>`);
+    btns.push(`<button data-act="edit:${esc(inStack[0].id)}">Edit entry</button>`);
+  }
+  return `<div class="refact">${btns.join("")}</div>${!inStack.length&&!lib&&e.t==="supp"?`<div class="eyebrow plain" style="margin:-8px 0 14px">Several forms of this exist. The add sheet will offer them once you start typing.</div>`:""}`;
+}
+function modalRef(){
+  const k=UI.refKey, e=REF[k];
+  if(!e) return `<div>${sheetHead("Reference","参照")}<div class="sm muted">No entry.</div></div>`;
+  const back=UI.refFrom==="list"?`<button class="icon none" data-act="refList" aria-label="Back to list">&#8249;</button>`:"";
+  return `<div>
+    <div class="row between center mb1">
+      <div class="row center gap2" style="min-width:0">${back}
+        <div style="min-width:0"><div class="eyebrow">参照 &middot; ${refKind(k)} reference</div>
+        <div class="display" style="font-size:22px;line-height:1.2">${esc(refTitle(k))}</div></div></div>
+      <button class="icon none" data-act="close" aria-label="Close">&#10005;</button>
+    </div><div class="rule mb3"></div>${refDetail(k)}</div>`;
+}
+const refCounts = () => {
+  const n=t=>Object.values(REF).filter(e=>e.t===t).length;
+  return `参照 &middot; ${n("pep")} peptides &middot; ${n("drug")} hormones &middot; ${n("supp")} supplements`;
+};
+function refListBody(){
   const q=String(UI.refQ||"").trim().toLowerCase(), f=UI.refFilter||"all";
   const keys=Object.keys(REF).filter(k=>{
     const e=REF[k];
-    if(f==="pep"&&e.t!=="pep") return false;
-    if(f==="supp"&&e.t!=="supp") return false;
+    if(f!=="all"&&e.t!==f) return false;
     if(!q) return true;
     return refTitle(k).toLowerCase().includes(q)||String(e.aka||"").toLowerCase().includes(q)||String(e.cls||"").toLowerCase().includes(q);
   }).sort((a,b)=>refTitle(a).localeCompare(refTitle(b)));
-  const nPep=Object.values(REF).filter(e=>e.t==="pep").length, nSupp=Object.values(REF).filter(e=>e.t==="supp").length;
-  return `<div>
-    ${sheetHead("Reference","参照 &middot; "+nPep+" peptides &middot; "+nSupp+" supplements")}
-    <input class="mb2" data-field="refQ" value="${esc(UI.refQ||"")}" placeholder="Search" autocomplete="off">
-    <div class="chips mb3">${[["all","All"],["pep","Peptides"],["supp","Supplements"]].map(([v,l])=>
+  return `<input class="mb2" data-field="refQ" value="${esc(UI.refQ||"")}" placeholder="Search" autocomplete="off">
+    <div class="chips mb3">${[["all","All"],["pep","Peptides"],["drug","Hormones"],["supp","Supplements"]].map(([v,l])=>
       `<button class="${f===v?"shu":""}" data-act="refFilter:${v}">${l}</button>`).join("")}</div>
     <div class="reflist card flat" style="padding:2px 12px">${keys.length?keys.map(k=>{
-      const e=REF[k], st=e.t==="pep"?STATUS[e.status]:null;
+      const e=REF[k], st=e.t!=="supp"?STATUS[e.status]:null;
       const inStack=S.items.some(i=>refFor(i)===k);
       return `<button data-act="ref:${esc(k)}">
         <div class="row between center gap2">
           <span style="font-size:15px">${esc(refTitle(k))}${inStack?` <span class="eyebrow" style="color:var(--shu)">in stack</span>`:""}</span>
           ${st?`<span class="eyebrow none" style="color:${st.col}">${st.kanji}</span>`:`<span class="eyebrow none">補</span>`}
         </div>
-        <div class="eyebrow plain">${esc(e.t==="pep"?e.cls:(e.forms||"").split(".")[0])}</div>
-      </button>`;}).join(""):`<div class="sm muted" style="padding:12px 0">Nothing matches.</div>`}</div>
-  </div>`;
+        <div class="eyebrow plain">${esc(e.t!=="supp"?e.cls:(e.forms||"").split(".")[0])}</div>
+      </button>`;}).join(""):`<div class="sm muted" style="padding:12px 0">Nothing matches.</div>`}</div>`;
+}
+function modalRefList(){
+  return `<div>${sheetHead("Reference",refCounts())}${refListBody()}</div>`;
+}
+/* ============================================================
+   VIEW — REFERENCE
+   ============================================================ */
+function viewRef(){
+  const k=UI.refKey;
+  if(k&&UI.refFrom==="tab"&&REF[k]){
+    return `<div class="row between center mb1">
+        <div class="row center gap2" style="min-width:0">
+          <button class="icon none" data-act="refBack" aria-label="Back to the list">&#8249;</button>
+          <div style="min-width:0"><div class="eyebrow">参照 &middot; ${refKind(k)} reference</div>
+            <div class="display" style="font-size:22px;line-height:1.2">${esc(refTitle(k))}</div></div>
+        </div>
+      </div><div class="rule mb3"></div>${refDetail(k)}`;
+  }
+  return `<div class="eyebrow mb2">${refCounts()}</div>
+    <p class="sm muted" style="margin:0 0 14px;line-height:1.6">What each one is, how it works, where it stands legally, what people report, and the bloodwork it moves. Your own panel shows up against those markers once you've saved one.</p>
+    ${refListBody()}`;
 }
 
 function tplJSON(){
@@ -2055,7 +2312,6 @@ function viewStack(){
     <button class="primary" data-act="add:supplement">＋ Supplement</button>
     <button class="primary" data-act="add:peptide">＋ Peptide</button></div>`;
   h += `<div class="row gap2 mb4">
-    <button class="f1 primary" data-act="refList">参照 Reference</button>
     <button class="f1" data-act="tplExport">Share template</button>
     <button class="f1" data-act="tplImport">Import</button></div>`;
   if(!shown.length) return h+`<div class="card flat pad sm muted">Nothing in this category yet.</div>`;
@@ -2091,7 +2347,8 @@ function viewStack(){
       </div>
       ${barrel(it,today())}
       ${nut?`<div class="eyebrow plain" style="margin-top:9px">Checked as ${esc(nut.label)}${nut.ul?` &middot; limit ${nut.ul} ${nut.unit}/day`:""}</div>`
-        :`<div class="eyebrow plain" style="margin-top:9px;color:var(--kin)">Not linked to a tracked nutrient — the checker can't see this one</div>`}
+        :isPep(it)||refFor(it)?(it.pclass&&PCLASS[it.pclass]?`<div class="eyebrow plain" style="margin-top:9px">${esc(PCLASS[it.pclass].label)}</div>`:"")
+        :`<div class="eyebrow plain" style="margin-top:9px;color:var(--kin)">Not linked to a tracked nutrient, so the nutrient checker can't see this one</div>`}
       ${it.notes?`<p class="sm muted" style="margin:11px 0 0">${esc(it.notes)}</p>`:""}
       <button class="wide" style="margin-top:13px" data-act="toggle:${it.id}">${it.active?"Pause":"Resume"}</button>
     </div>`;
@@ -2498,7 +2755,7 @@ function sugHTML(){
   return link+`<div class="sug mb3">${sug.map(x=>
     `<button data-act="pick:${LIB.indexOf(x)}">
       <span class="n">${esc(x.n)}</span>
-      <span class="d">${trim(x.dose)} ${x.u}${x.freq?` &middot; ${x.freq==="daily"?"daily":x.freq==="interval"?`every ${x.interval}d`:"2&times;/wk"}`:""}${x.t?` &middot; ${timingLabel(x.t)}`:""}${x.research?" &middot; research":""}</span>
+      <span class="d">${x.noDose?"dose is yours to set":`${trim(x.dose)} ${x.u}`}${x.freq?` &middot; ${x.freq==="daily"?"daily":x.freq==="interval"?`every ${x.interval}d`:"2&times;/wk"}`:""}${x.t?` &middot; ${timingLabel(x.t)}`:""}${x.research?" &middot; research":""}</span>
     </button>`).join("")}</div>`;
 }
 function nutHTML(){
@@ -2510,6 +2767,25 @@ function nutHTML(){
   return `<div class="sug mb2">${hits.map(([k,v])=>
     `<button data-act="nutpick:${k}"><span class="n">${esc(v.label)}</span>
      <span class="d">${v.ul?`limit ${v.ul} ${v.unit}/day`:"no established limit"}</span></button>`).join("")}</div>`;
+}
+const scrollTop = () => { try{ window.scrollTo(0,0); }catch(_){} };
+/* one place that decides what a blank item looks like, and one place that
+   fills it in from the library, so the add buttons and the reference pages
+   can't drift apart */
+function newDraft(kind){
+  return {id:uid(),kind,name:"",dose:"",unit:kind==="peptide"?"mcg":"mg",
+    doseMode:"amount",cvMg:10,cvWater:1,cvUnits:10,
+    freq:"daily",days:[1,2,3,4,5],interval:kind==="peptide"?7:2,perDay:1,
+    startDate:today(),cycleOn:"",cycleOff:"",leadDays:DEFAULT_LEAD,notes:"",
+    timing:kind==="peptide"?null:"morning",withFood:false,nutrient:"",pclass:"",active:true};
+}
+function applyLib(D,x){
+  Object.assign(D,{name:x.n,dose:x.noDose?"":x.dose,unit:x.u,nutrient:x.nut||"",
+    pclass:x.pclass||"",research:x.research?1:0,noDose:x.noDose?1:0,
+    titrate:x.titrate||"",planStr:x.planStr||"",plan:x.planStr?parsePlan(x.planStr):null});
+  if(x.t){ D.timing=x.t; D.withFood=!!x.food; }
+  if(x.freq){ D.freq=x.freq; if(x.days) D.days=x.days; if(x.interval) D.interval=x.interval; }
+  return D;
 }
 function searchLib(q,kind){
   const s = String(q).trim().toLowerCase();
@@ -2549,6 +2825,7 @@ function modalItem(){
       value="${esc(d.name)}" placeholder="${pep?"BPC-157":"Magnesium glycinate"}" autocomplete="off">
     ${ferr("name")}
     <div id="sugbox">${sugHTML()}</div>
+    ${d.noDose?`<div class="eyebrow plain mb3" style="color:var(--kin);line-height:1.6">The library has no starting number for this one. It's prescription or controlled, the figure belongs to whoever writes it, and a prefilled default would read like a suggestion. Enter what you actually take.</div>`:""}
     ${pep?`<label class="eyebrow">Set the dose by</label>
     <div class="row gap2" style="margin:7px 0 10px">
       <button class="f1 ${d.doseMode!=="units"?"shu":""}" data-act="dmode:amount">Amount</button>
@@ -2860,7 +3137,8 @@ function render(){
   const notes = findings.filter(f=>f.sev==="note").length;
   const tabs = [["today","Today","今日",0],["stack","Stack","一覧",0],
                 ["stock","Stock","在庫",al],
-                ["check","Check","照合",concerns||notes],["trends","Trends","推移",0]];
+                ["check","Check","照合",concerns||notes],["trends","Trends","推移",0],
+                ["ref","Reference","参照",0]];
   document.getElementById("app").innerHTML = `
     <div class="crest">
       <div class="wrap row between end" style="padding:20px 16px 13px">
@@ -2884,7 +3162,8 @@ function render(){
     <div class="wrap" style="padding-top:18px;padding-bottom:26px">
       ${UI.tab==="today"?viewToday():UI.tab==="stack"?viewStack()
         :UI.tab==="stock"?viewStock()
-        :UI.tab==="check"?viewCheck():viewTrends()}
+        :UI.tab==="check"?viewCheck()
+        :UI.tab==="ref"?viewRef():viewTrends()}
     </div>
     <div class="wrap eyebrow plain" style="padding-bottom:28px;line-height:1.6;opacity:.8">
       A record of what you did and a check against published limits — not guidance on what to take.
@@ -2958,15 +3237,38 @@ document.addEventListener("click", async e => {
   if(act==="csel"){ UI.csel=Number(a); return render(); }
   if(act==="trview"){ UI.trView=a; return render(); }
   if(act==="refList"){
-    if(UI.modal&&UI.modal!=="ref"&&UI.modal!=="reflist") UI.prevModal={m:UI.modal,d:UI.draft};
+    if(!UI.modal){ UI.tab="ref"; UI.refKey=null; UI.refFrom=null; return render(); }
+    if(UI.modal!=="ref"&&UI.modal!=="reflist") UI.prevModal={m:UI.modal,d:UI.draft};
     UI.modal="reflist"; return renderModal(); }
-  if(act==="refFilter"){ UI.refFilter=a; return renderModal(); }
+  if(act==="refFilter"){ UI.refFilter=a; return UI.modal?renderModal():render(); }
+  if(act==="refBack"){ UI.refKey=null; UI.refFrom=null; scrollTop(); return render(); }
   if(act==="ref"){
     const key=raw.slice(4);
     if(!REF[key]) return;
+    if(!UI.modal&&UI.tab==="ref"){ UI.refKey=key; UI.refFrom="tab"; scrollTop(); return render(); }
     if(UI.modal&&UI.modal!=="ref"&&UI.modal!=="reflist") UI.prevModal={m:UI.modal,d:UI.draft};
     UI.refFrom=UI.modal==="reflist"?"list":null;
     UI.refKey=key; UI.modal="ref"; return renderModal();
+  }
+  /* the two things a reference page can do for you */
+  if(act==="refAdd"){
+    const key=raw.slice(7), e=REF[key];
+    if(!e) return;
+    const lib=libForRef(key);
+    const kind=lib?(lib.k==="pep"?"peptide":"supplement"):(e.t==="supp"?"supplement":"peptide");
+    const d=newDraft(kind);
+    if(lib) applyLib(d,lib);
+    else if(e.t==="supp"){ d.nutrient=key; d.name=NUTRIENTS[key]?NUTRIENTS[key].label:refTitle(key); }
+    else d.name=refTitle(key);
+    UI.prevModal=null; UI.draft=d; UI.modal="item";
+    return renderModal();
+  }
+  if(act==="refStock"){
+    const it=S.items.find(x=>x.id===a); if(!it) return;
+    UI.prevModal=null; UI.modal="batch";
+    UI.draft={id:uid(),itemId:it.id,mg:"",servings:"",sealed:1,
+      addedDate:today(),lot:"",source:"",location:"",cost:""};
+    return renderModal();
   }
   if(act==="bfocus"){ UI.bodyFocus=a; return render(); }
   if(act==="addBody"){
@@ -3061,21 +3363,13 @@ document.addEventListener("click", async e => {
   }
 
   if(act==="add"){
-    UI.modal="item";
-    UI.draft={id:uid(),kind:a,name:"",dose:"",unit:a==="peptide"?"mcg":"mg",
-      doseMode:"amount",cvMg:10,cvWater:1,cvUnits:10,
-      freq:"daily",days:[1,2,3,4,5],interval:a==="peptide"?7:2,perDay:1,
-      startDate:today(),cycleOn:"",cycleOff:"",leadDays:DEFAULT_LEAD,notes:"",
-      timing:a==="peptide"?null:"morning",withFood:false,nutrient:"",pclass:"",active:true};
+    UI.modal="item"; UI.draft=newDraft(a);
     return renderModal();
   }
   if(act==="edit"){ UI.modal="item"; UI.draft={...S.items.find(x=>x.id===a),existing:true}; return renderModal(); }
   if(act==="pick"){
     const x = LIB[Number(a)]; if(!x) return;
-    Object.assign(D,{name:x.n,dose:x.dose,unit:x.u,nutrient:x.nut||"",
-      pclass:x.pclass||"",research:x.research?1:0,titrate:x.titrate||"",planStr:x.planStr||"",plan:x.planStr?parsePlan(x.planStr):null});
-    if(x.t){ D.timing=x.t; D.withFood=!!x.food; }
-    if(x.freq){ D.freq=x.freq; if(x.days) D.days=x.days; if(x.interval) D.interval=x.interval; }
+    applyLib(D,x);
     return renderModal();
   }
   if(act==="dmode"){ D.doseMode=a; return renderModal(); }
@@ -3109,8 +3403,8 @@ document.addEventListener("click", async e => {
       cycleOff:D.cycleOff===""?"":parseInt(D.cycleOff)||"",
       leadDays:parseInt(D.leadDays)||DEFAULT_LEAD};
     if(it.kind==="peptide"){ it.nutrient=""; it.timing=null; it.withFood=false; }
-    else { it.pclass=""; }
-    delete it.existing;
+    else if(!PCLASS[it.pclass]) it.pclass="";
+    delete it.existing; delete it.noDose;
     S.items = S.items.some(x=>x.id===it.id)?S.items.map(x=>x.id===it.id?it:x):[...S.items,it];
     UI.modal=null; UI.draft=null; return commit();
   }
@@ -3314,7 +3608,7 @@ document.addEventListener("input", e => {
   if(e.target.dataset.field==="refQ"){
     UI.refQ=e.target.value;
     const pos=e.target.selectionStart;
-    renderModal();
+    if(UI.modal) renderModal(); else render();
     const again=document.querySelector('[data-field="refQ"]');
     if(again){ again.focus(); try{ again.setSelectionRange(pos,pos); }catch(_){} }
     return;
