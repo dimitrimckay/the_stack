@@ -209,6 +209,10 @@ h1,h2{margin:0;}
 .pill{display:inline-block;font-size:12px;padding:5px 9px;border:1px solid var(--line);border-radius:2px;background:rgba(242,237,230,.03);}
 .watch{border-left:2px solid rgba(217,169,74,.45);padding-left:11px;font-size:13px;line-height:1.55;}
 .watch.hot{border-left-color:var(--alert);}
+.legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;letter-spacing:.02em;color:var(--hai);padding:9px 12px;
+  border:1px solid var(--line-2);border-radius:3px;background:rgba(242,237,230,.02);}
+.legend b{font-family:"Shippori Mincho",serif;font-weight:600;font-size:12.5px;margin-right:3px;}
 .lmove{border-left:2px solid var(--line);padding:9px 0 9px 12px;}
 .lmove.up{border-left-color:rgba(255,90,60,.55);}
 .lmove.down{border-left-color:rgba(217,169,74,.55);}
@@ -250,7 +254,7 @@ h1,h2{margin:0;}
    STORAGE
    ============================================================ */
 const KEY = "peptide-log-v1";
-const REV = "r8";
+const REV = "r9";
 const store = {
   async load(){
     try{
@@ -270,7 +274,7 @@ const store = {
 let S = { items:[], logs:[], batches:[], vials:[], labs:[], profile:{flags:[],sex:"m"}, meta:{lastExport:null}, body:[] };
 let UI = { tab:"today", date:null, modal:null, draft:null, focus:null, range:30,
            err:"", filter:"all", moreFlags:false, scanMsg:"", labGroup:"all",
-           checkView:"find", formErr:null, csel:null, trView:"dose", bodyFocus:null, refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
+           checkView:"find", formErr:null, csel:null, trView:"dose", bodyFocus:null, hmk:null, refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
 
 /* ============================================================
    NUTRIENT REFERENCE
@@ -429,12 +433,12 @@ const PEP_MED_RULES = [
   {flag:"thyroid",pclass:"glp1",sev:"note",t:"GLP-1s slow stomach emptying, which changes the timing of oral medication absorption — including thyroid medication."},
   {flag:"trt",pclass:"ghs",sev:"note",t:"Growth hormone secretagogues on top of testosterone stack water retention and effects on insulin sensitivity. Worth watching fasting glucose and blood pressure if you're running both."},
   {flag:"hctHigh",pclass:"ghs",sev:"note",t:"With hematocrit already high, anything that further stimulates red cell production or raises blood viscosity deserves monitoring."},
-  {flag:"liver",pclass:"aasOral",sev:"concern",t:"The 17-alpha-alkyl group that lets these survive the first pass through the liver is the same feature that stresses it. With ALT or AST already above range, this combination is the one most likely to be the reason. ALT, AST, GGT, ALP and bilirubin together separate liver strain from ordinary training-related muscle leakage."},
-  {flag:"anticoag",pclass:"aasOral",sev:"concern",t:"17-alpha-alkylated steroids potentiate warfarin and related anticoagulants, sometimes dramatically, by shifting clotting factor synthesis. This is a documented interaction with bleeding consequences, and whoever manages your dosing needs to know."},
-  {flag:"hctHigh",pclass:"aas",sev:"concern",t:"Androgens raise red cell mass directly, and hematocrit is already flagged. This is the marker to have in front of you, along with hemoglobin and ferritin."},
-  {flag:"trt",pclass:"aas",sev:"note",t:"You have testosterone therapy flagged and there is another androgen in the stack. They act on the same receptor and the effects on hematocrit, lipids and blood pressure add up rather than run in parallel."},
-  {flag:"diabetes",pclass:"gh",sev:"concern",t:"Growth hormone directly opposes insulin. Fasting glucose, fasting insulin and HbA1c all move, and medication doses set before it started may no longer fit."},
-  {flag:"bp",pclass:"aas",sev:"note",t:"Androgens raise blood pressure through fluid retention and red cell mass. If yours is being medicated, this belongs in that conversation."}
+  {flag:"liver",pclass:"aasOral",sev:"concern",title:"An oral steroid with your liver enzymes already up",t:"The 17-alpha-alkyl group that lets these survive the first pass through the liver is the same feature that stresses it. With ALT or AST already above range, this combination is the one most likely to be the reason. ALT, AST, GGT, ALP and bilirubin together separate liver strain from ordinary training-related muscle leakage."},
+  {flag:"anticoag",pclass:"aasOral",sev:"concern",title:"An oral steroid alongside a blood thinner",t:"17-alpha-alkylated steroids potentiate warfarin and related anticoagulants, sometimes dramatically, by shifting clotting factor synthesis. This is a documented interaction with bleeding consequences, and whoever manages your dosing needs to know."},
+  {flag:"hctHigh",pclass:"aas",sev:"concern",title:"An androgen with hematocrit already flagged",t:"Androgens raise red cell mass directly, and hematocrit is already flagged. This is the marker to have in front of you, along with hemoglobin and ferritin."},
+  {flag:"trt",pclass:"aas",sev:"note",title:"Another androgen alongside your testosterone",t:"You have testosterone therapy flagged and there is another androgen in the stack. They act on the same receptor and the effects on hematocrit, lipids and blood pressure add up rather than run in parallel."},
+  {flag:"diabetes",pclass:"gh",sev:"concern",title:"Growth hormone with diabetes medication",t:"Growth hormone directly opposes insulin. Fasting glucose, fasting insulin and HbA1c all move, and medication doses set before it started may no longer fit."},
+  {flag:"bp",pclass:"aas",sev:"note",title:"An androgen with blood pressure medication",t:"Androgens raise blood pressure through fluid retention and red cell mass. If yours is being medicated, this belongs in that conversation."}
 ];
 
 /* ============================================================
@@ -585,10 +589,10 @@ const LIB = [
      every one of them is prescription or controlled, the figure belongs to
      whoever writes it, and a prefilled default would read as a suggestion. */
   {k:"pep",n:"Somatropin (HGH)",dose:"",u:"iu",freq:"daily",pclass:"gh",noDose:1,alt:"hgh human growth hormone genotropin norditropin omnitrope humatrope saizen"},
-  {k:"pep",n:"Testosterone cypionate",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"test cyp depo-testosterone testosterone enanthate trt"},
-  {k:"pep",n:"Nandrolone decanoate",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"deca durabolin nandrolone npp phenylpropionate"},
-  {k:"pep",n:"Trenbolone acetate",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"tren trenbolone enanthate finaplix"},
-  {k:"pep",n:"Drostanolone propionate",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"masteron drostanolone enanthate"},
+  {k:"pep",n:"Testosterone cypionate",form:"premix",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"test cyp depo-testosterone testosterone enanthate trt"},
+  {k:"pep",n:"Nandrolone decanoate",form:"premix",dose:"",u:"mg",freq:"interval",interval:7,pclass:"aas",noDose:1,alt:"deca durabolin nandrolone npp phenylpropionate"},
+  {k:"pep",n:"Trenbolone acetate",form:"premix",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"tren trenbolone enanthate finaplix"},
+  {k:"pep",n:"Drostanolone propionate",form:"premix",dose:"",u:"mg",freq:"interval",interval:2,pclass:"aas",noDose:1,alt:"masteron drostanolone enanthate"},
   {k:"pep",n:"hCG",dose:"",u:"iu",freq:"weekdays",days:[1,4],pclass:"gonadotropin",noDose:1,alt:"human chorionic gonadotropin pregnyl novarel ovidrel"},
   {k:"supp",n:"Oxandrolone",dose:"",u:"mg",t:"morning",food:1,pclass:"aasOral",noDose:1,alt:"anavar oxandrin var"},
   {k:"supp",n:"Methandienone",dose:"",u:"mg",t:"morning",food:1,pclass:"aasOral",noDose:1,alt:"dianabol dbol methandrostenolone anabol"},
@@ -716,11 +720,17 @@ function vialMath(v,it){
   const remainMcg = Math.max(0,totalMcg-drawn);
   const doseMcg = it?toMcg(num(it.dose),it.unit):null;
   const perDoseMl = doseMcg&&conc?doseMcg/conc:0;
-  const bud = v.budDays??DEFAULT_BUD, age = between(v.reconDate,today());
+  /* Powder gets a use-by window from the day water went in. Oil arrives
+     already in solution and keeps for years, so a window there is optional
+     and blank means no clock at all. */
+  const bud = v.premix ? (num(v.budDays)>0?num(v.budDays):null) : (v.budDays??DEFAULT_BUD);
+  const age = between(v.reconDate,today());
   return {conc,remainMcg,remainMl:conc?remainMcg/conc:0,perDoseMl,units:perDoseMl*100,
+    premix:!!v.premix,
     dosesLeft:doseMcg?Math.floor(remainMcg/doseMcg):null,
     dosesTotal:doseMcg?Math.floor(totalMcg/doseMcg):null,
-    pct:totalMcg?remainMcg/totalMcg:0,age,bud,budLeft:bud-age,expired:age>bud};
+    pct:totalMcg?remainMcg/totalMcg:0,age,bud,
+    budLeft:bud!=null?bud-age:null,expired:bud!=null&&age>bud};
 }
 function contMath(v){
   const used = S.logs.filter(l=>l.vialId===v.id).length;
@@ -920,7 +930,7 @@ function analyze(){
     if(!flags.includes(r.flag)) continue;
     const hits = active.filter(i=>i.pclass===r.pclass);
     if(!hits.length) continue;
-    add(r.sev,`${PCLASS[r.pclass].label} with ${flagLC(r.flag)}`,
+    add(r.sev,r.title||`${PCLASS[r.pclass].label} with ${flagLC(r.flag)}`,
       r.t,hits.map(i=>i.name));
   }
 
@@ -1186,6 +1196,105 @@ function analyze(){
     if(ckV!=null&&mStatus("ck",ckV)==="high")
       L("note","Creatine kinase is high",
         `CK at ${ckV} U/L is above range. In people who lift, this is usually just muscle damage from recent training rather than anything pathological — CK routinely runs high for days after heavy eccentric work. It does mean any AST elevation on the same panel is likely muscular too.`,[]);
+
+    /* ---------- the hormone panel ---------- */
+    const hasC = c => active.filter(i=>i.pclass===c);
+    const androgen = [...hasC("aas"),...hasC("aasOral")];
+    const oral17 = hasC("aasOral"), ghItems = hasC("gh");
+    const ai = hasC("ai"), serm = hasC("serm"), gonad = hasC("gonadotropin");
+    const nm = a => a.map(i=>i.name).join(", ");
+
+    /* gonadotropins: the pair that says whether your own axis is running */
+    const lhV = V("lh"), fshV = V("fsh");
+    if(lhV!=null&&fshV!=null&&lhV<1.0&&fshV<1.5){
+      if(gonad.length)
+        L("note","LH reads low, and hCG makes that reading unreliable",
+          `LH ${lhV} IU/L and FSH ${fshV} IU/L. With ${nm(gonad)} running, the LH result can't be trusted either way, because the assay can't tell hCG from LH. FSH is the honest half of this pair, and at ${fshV} it says the pituitary signal is still switched off.`,
+          nm(gonad).split(", "));
+      else if(androgen.length)
+        L("note","Your own axis is switched off",
+          `LH ${lhV} IU/L and FSH ${fshV} IU/L are both at the floor, which is what ${nm(androgen)} does and is not a surprise. It is worth having on paper anyway: it confirms the shutdown rather than assuming it, and it's the number people want a baseline of before they ever try to come off.`,
+          androgen.map(i=>i.name));
+      else
+        L("note","Both gonadotropins are low with nothing in your stack to explain it",
+          `LH ${lhV} IU/L and FSH ${fshV} IU/L are both below range and nothing you're logging suppresses them. Low gonadotropins with low testosterone points at the pituitary rather than the testes, which is a different diagnosis and a different treatment. This one belongs with a doctor.`,[]);
+    }
+
+    /* estradiol against an aromatase inhibitor */
+    const e2V = V("e2");
+    if(e2V!=null&&ai.length){
+      if(mStatus("e2",e2V)==="low")
+        L("concern","Estradiol is under range with an aromatase inhibitor running",
+          `Estradiol at ${e2V} pg/mL is below the reference band while ${nm(ai)} is in your stack. Aching joints, flat mood, poor sleep and absent libido are what this looks like from the inside, and they read as the same complaints people blame on high estrogen. Estrogen also maintains bone in men. This is a dose conversation with whoever prescribed it.`,
+          ai.map(i=>i.name));
+      else if(mStatus("e2",e2V)==="in")
+        L("good","Estradiol is in range on an aromatase inhibitor",
+          `${e2V} pg/mL with ${nm(ai)} running. Worth noting because the failure mode here is overshooting, and this is what not overshooting looks like.`,
+          ai.map(i=>i.name));
+    }
+    if(e2V!=null&&!ai.length&&mStatus("e2",e2V)==="high"&&androgen.length)
+      L("note","Estradiol is above range",
+        `${e2V} pg/mL with ${nm(androgen)} on board. Aromatization tracks dose, so the dose is the first lever rather than the last. In men, confirm with a sensitive or LC-MS assay before acting: standard immunoassays are unreliable at male concentrations and a wrong number here gets treated in the wrong direction.`,
+        androgen.map(i=>i.name));
+
+    /* prolactin and the 19-nors */
+    const prlV = V("prolactin");
+    const nors = active.filter(i=>/nandrolone|trenbolone|deca|tren/i.test(i.name));
+    if(prlV!=null&&mStatus("prolactin",prlV)==="high"){
+      if(nors.length)
+        L("note","Prolactin is high, and you're running a 19-nor",
+          `Prolactin at ${prlV} ng/mL is above range with ${nm(nors)} in your stack. Progestogenic activity is the mechanism, and this is the marker that separates it from an estradiol problem, since the two produce the same complaints. Persistently high prolactin with no compound to explain it is worked up with an MRI, so the compound being on the chart matters.`,
+          nors.map(i=>i.name));
+      else
+        L("note","Prolactin is above range",
+          `${prlV} ng/mL is above the reference band. A stressful draw and recent nipple stimulation both raise it transiently, so a rested repeat comes first. If it holds, it gets worked up properly rather than guessed at.`,[]);
+    }
+
+    /* IGF-1 */
+    const igfV = V("igf1");
+    if(igfV!=null&&ghItems.length){
+      if(mStatus("igf1",igfV)==="high")
+        L("concern","IGF-1 is above the reference range",
+          `IGF-1 at ${igfV} ng/mL is above range with ${nm(ghItems)} running. This is the marker growth hormone dosing is titrated against, and above range is where the growth effects stop being confined to the tissue you wanted. Note that reference ranges are age banded, so your lab's own band matters more here than the generic one.`,
+          ghItems.map(i=>i.name));
+      else
+        L("good","IGF-1 is in range",
+          `${igfV} ng/mL with ${nm(ghItems)} running. This is the number that reflects the dose, since growth hormone itself is pulsatile and a single draw of it says almost nothing.`,
+          ghItems.map(i=>i.name));
+    }
+    if(igfV!=null&&!ghItems.length&&mStatus("igf1",igfV)==="high"&&hasC("ghs").length)
+      L("note","IGF-1 is above range on secretagogues alone",
+        `${igfV} ng/mL with ${nm(hasC("ghs"))} in the stack. Secretagogues work through your own pituitary, so the ceiling is meant to be your own feedback loop. Above range means that loop is being pushed past where it would sit on its own.`,
+        hasC("ghs").map(i=>i.name));
+
+    /* liver enzymes against orals specifically */
+    const altV=V("alt"), astV=V("ast"), ggtV=V("ggt"), biliV=V("bili");
+    if(oral17.length&&((altV!=null&&mStatus("alt",altV)==="high")||(astV!=null&&mStatus("ast",astV)==="high"))){
+      const muscle = ggtV!=null&&mStatus("ggt",ggtV)==="in";
+      L("concern","Liver enzymes are up on an oral steroid",
+        `${altV!=null?`ALT ${altV}`:""}${altV!=null&&astV!=null?", ":""}${astV!=null?`AST ${astV}`:""} with ${nm(oral17)} running. `+
+        (muscle?`Your GGT is in range, which points away from the liver and toward muscle, and heavy training raises ALT and AST on its own. That's the more reassuring reading, but it isn't proof.`
+               :`GGT would help separate liver from muscle here, and it isn't on this panel.`)+
+        (biliV!=null&&mStatus("bili",biliV)==="high"?` Bilirubin at ${biliV} is also up, and that combination points at the liver rather than at training.`:``),
+        oral17.map(i=>i.name));
+    }
+
+    /* PSA drift across two panels */
+    const psaV = V("psa"), prev = prevPanel();
+    if(psaV!=null&&prev&&prev.m&&prev.m.psa!=null&&androgen.length){
+      const d = psaV-Number(prev.m.psa);
+      if(d>=0.75)
+        L("note","PSA has moved between panels",
+          `PSA went from ${trim(Number(prev.m.psa))} on ${prev.date} to ${psaV} now, a rise of ${trim(d)} ng/mL, with ${nm(androgen)} running. A small rise on androgens is expected as the prostate responds. A jump of this size in a year is the threshold most urologists want to look at rather than watch.`,
+          androgen.map(i=>i.name));
+    }
+
+    /* the lipid picture that orals produce */
+    const hdl2 = V("hdl");
+    if(hdl2!=null&&mStatus("hdl",hdl2)==="low"&&androgen.length&&!flags.includes("trt"))
+      L("note","HDL is low and there are androgens in the stack",
+        `HDL at ${hdl2} mg/dL is below range with ${nm(androgen)} running${oral17.length?`, and orals suppress it far harder than injectables do`:``}. ApoB is the marker that carries the actual risk and it's the one to add if this panel didn't include it.`,
+        androgen.map(i=>i.name));
   }
 
   const order = {concern:0,note:1,good:2};
@@ -1206,11 +1315,11 @@ async function commit(){
    research (sold for research use, no human approval).
    ============================================================ */
 const STATUS = {
-  approved:{label:"Approved for human use",kanji:"承認",col:"var(--shu)"},
-  trial:{label:"In human trials",kanji:"治験",col:"var(--kin)"},
-  withdrawn:{label:"Withdrawn from human use",kanji:"廃止",col:"var(--hai)"},
-  vet:{label:"Veterinary use only",kanji:"獣医",col:"var(--hai)"},
-  research:{label:"Research use only",kanji:"研究",col:"var(--hai)"}
+  approved:{label:"Approved for human use",short:"Approved",kanji:"承認",col:"var(--shu)"},
+  trial:{label:"In human trials",short:"In trials",kanji:"治験",col:"var(--kin)"},
+  withdrawn:{label:"Withdrawn from human use",short:"Withdrawn",kanji:"廃止",col:"var(--hai)"},
+  vet:{label:"Veterinary use only",short:"Veterinary",kanji:"獣医",col:"var(--hai)"},
+  research:{label:"Research use only",short:"Research only",kanji:"研究",col:"var(--hai)"}
 };
 const REF = {
 "BPC-157":{t:"pep",aka:"Body Protection Compound 157, PL 14736",cls:"gastric pentadecapeptide",status:"research",half:"Not established in humans; short",route:"Subcutaneous, oral",
@@ -2103,6 +2212,11 @@ const refCounts = () => {
   const n=t=>Object.values(REF).filter(e=>e.t===t).length;
   return `参照 &middot; ${n("pep")} peptides &middot; ${n("drug")} hormones &middot; ${n("supp")} supplements`;
 };
+function statusLegend(){
+  return `<div class="legend mb3">${Object.entries(STATUS).map(([k,v])=>
+    `<span><b style="color:${v.col}">${v.kanji}</b> ${esc(v.short)}</span>`).join("")}
+    <span><b>補</b> Supplement</span></div>`;
+}
 function refListBody(){
   const q=String(UI.refQ||"").trim().toLowerCase(), f=UI.refFilter||"all";
   const keys=Object.keys(REF).filter(k=>{
@@ -2114,6 +2228,7 @@ function refListBody(){
   return `<input class="mb2" data-field="refQ" value="${esc(UI.refQ||"")}" placeholder="Search" autocomplete="off">
     <div class="chips mb3">${[["all","All"],["pep","Peptides"],["drug","Hormones"],["supp","Supplements"]].map(([v,l])=>
       `<button class="${f===v?"shu":""}" data-act="refFilter:${v}">${l}</button>`).join("")}</div>
+    ${statusLegend()}
     <div class="reflist card flat" style="padding:2px 12px">${keys.length?keys.map(k=>{
       const e=REF[k], st=e.t!=="supp"?STATUS[e.status]:null;
       const inStack=S.items.some(i=>refFor(i)===k);
@@ -2409,10 +2524,12 @@ function viewStock(){
         h += `<div class="card pad row gap3 mb2 ${m.expired?"spine red":""}">
           <div class="vial"><i style="height:${Math.max(0,Math.min(1,m.pct))*100}%"></i></div>
           <div class="f1">
-            <div class="mono" style="font-size:14px;font-weight:600">${v.mg}mg in ${v.water}mL &middot; ${fx(m.conc/1000,2)} mg/mL</div>
+            <div class="mono" style="font-size:14px;font-weight:600">${v.mg}mg in ${v.water}mL &middot; ${fx(m.conc/1000,2)} mg/mL${m.premix?` <span class="eyebrow none">premixed</span>`:""}</div>
             <div class="data">${m.dosesLeft!=null?`${m.dosesLeft} of ${m.dosesTotal} doses left &middot; ${fx(m.remainMl,2)}mL &middot; ${fx(m.units)}u per dose`:`dose is set in iu &mdash; draws and remaining can't be computed from mg`}</div>
             <div class="eyebrow plain" style="margin-top:3px;color:${m.expired?"var(--alert)":"var(--hai)"}">
-              Opened ${v.reconDate} &middot; ${m.expired?`${m.age-m.bud}d past your ${m.bud}d window`:`${m.budLeft}d left in window`}</div>
+              Opened ${v.reconDate} &middot; ${m.expired?`${m.age-m.bud}d past your ${m.bud}d window`
+                :m.budLeft!=null?`${m.budLeft}d left in window`
+                :`${m.age}d ago &middot; no use-by set`}</div>
             <button class="tiny" style="margin-top:9px" data-act="finishVial:${v.id}">Mark finished</button>
           </div></div>`;
       }
@@ -2421,7 +2538,7 @@ function viewStock(){
       h += `<div class="card pad mb2">
         <div class="row between center">
           <div style="min-width:0">
-            <div class="mono" style="font-size:14px;font-weight:600">${isPep(it)?`${b.mg}mg sealed`:`${b.servings} servings per container`}</div>
+            <div class="mono" style="font-size:14px;font-weight:600">${isPep(it)?(b.form==="premix"?`${b.mg}mg in ${trim(num(b.ml))}mL &middot; ${trim(num(b.mg)/(num(b.ml)||1))} mg/mL`:`${b.mg}mg sealed`):`${b.servings} servings per container`}</div>
             <div class="eyebrow plain">Added ${b.addedDate}${b.location?` &middot; ${esc(b.location)}`:""}${b.lot?` &middot; lot ${esc(b.lot)}`:""}</div>
             ${b.source?`<div class="eyebrow plain">${esc(b.source)}</div>`:""}
           </div>
@@ -2432,7 +2549,7 @@ function viewStock(){
           </div>
         </div>
         <div class="row gap2" style="margin-top:11px">
-          <button class="shu f1" data-act="${isPep(it)?"recon":"openCont"}:${b.id}" ${!b.sealed?"disabled":""}>${isPep(it)?"Reconstitute one":"Open one"}</button>
+          <button class="shu f1" data-act="${isPep(it)?"recon":"openCont"}:${b.id}" ${!b.sealed?"disabled":""}>${isPep(it)&&b.form!=="premix"?"Reconstitute one":"Open one"}</button>
           <button class="icon" data-act="editBatch:${b.id}" aria-label="Edit">&#9998;</button>
           <button class="icon danger" data-act="delBatch:${b.id}" aria-label="Delete">&#10005;</button>
         </div></div>`;
@@ -2624,11 +2741,109 @@ function viewCheck(){
 /* ============================================================
    VIEW — TRENDS
    ============================================================ */
+/* The markers worth charting against a dose. Everything else on a panel is
+   still on the Bloodwork page; this is the short list that androgens and
+   growth hormone actually move. */
+const HORM_MARKERS = ["hct","hgb","ferritin","testT","testF","e2","shbg","lh","fsh",
+  "prolactin","igf1","psa","hdl","apob","ldl","trig","alt","ast","ggt","glucose","a1c"];
+
+function viewHormones(){
+  const panels=(S.labs||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  if(!panels.length)
+    return `<div class="card flat pad sm muted">No bloodwork saved yet. Paste a panel into Bloodwork and this fills in: a marker on one line, your doses on the other.
+      <button class="wide" style="margin-top:12px" data-act="tab:labs">Go to Bloodwork</button></div>`;
+  const avail=HORM_MARKERS.filter(k=>panels.some(p=>p.m&&p.m[k]!=null));
+  if(!avail.length)
+    return `<div class="card flat pad sm muted">Your ${panels.length>1?"panels don't":"panel doesn't"} include any of the markers this view charts. Hematocrit, estradiol, total testosterone, LH, IGF-1 and the lipid panel are the ones it looks for.</div>`;
+  let mk=UI.hmk;
+  if(!avail.includes(mk)) mk=avail[0];
+  let h=`<div class="chips mb3">${avail.map(k=>
+    `<button class="${k===mk?"shu":""}" data-act="hmk:${k}">${MARKERS[k].label}</button>`).join("")}</div>`;
+
+  const M=MARKERS[mk], [lo,hi]=mRange(M);
+  const pts=panels.filter(p=>p.m&&p.m[mk]!=null).map(p=>({date:p.date,v:Number(p.m[mk])}));
+  const overlay=S.items.filter(i=>["aas","aasOral","gh","gonadotropin","ai","serm"].includes(i.pclass));
+  const fit=S.items.find(x=>x.id===UI.focus&&overlay.some(o=>o.id===x.id))||overlay[0]||S.items.find(x=>x.id===UI.focus)||S.items[0];
+
+  const t0=pts[0].date, t1=pts[pts.length-1].date;
+  const logDates=fit?S.logs.filter(l=>l.itemId===fit.id).map(l=>l.date):[];
+  const first=[t0,...logDates].sort()[0];
+  const last=[t1,...logDates].sort().slice(-1)[0];
+  const span=Math.max(1,between(first,last));
+  const W=320,H=124;
+  const X=d=>between(first,d)/span*W;
+  const vs=pts.map(p=>p.v);
+  const yLo=Math.min(lo,...vs), yHi=Math.max(hi,...vs);
+  const pad=(yHi-yLo)*0.12||1;
+  const bLo=yLo-pad, bHi=yHi+pad, bSpan=(bHi-bLo)||1;
+  const Y=v=>H-8-((v-bLo)/bSpan)*(H-20);
+
+  const band=`<rect x="0" y="${fx(Y(hi),1)}" width="${W}" height="${fx(Math.max(1,Y(lo)-Y(hi)),1)}"
+    fill="rgba(242,237,230,.055)"/>
+    <line x1="0" y1="${fx(Y(hi),1)}" x2="${W}" y2="${fx(Y(hi),1)}" stroke="rgba(242,237,230,.18)" stroke-dasharray="3 3"/>
+    <line x1="0" y1="${fx(Y(lo),1)}" x2="${W}" y2="${fx(Y(lo),1)}" stroke="rgba(242,237,230,.18)" stroke-dasharray="3 3"/>`;
+  const line=pts.length>1?`<polyline points="${pts.map(p=>`${fx(X(p.date),1)},${fx(Y(p.v),1)}`).join(" ")}"
+    fill="none" stroke="var(--shu)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:"";
+  const dots=pts.map(p=>`<circle cx="${fx(X(p.date),1)}" cy="${fx(Y(p.v),1)}" r="3"
+    fill="${mStatus(mk,p.v)==="in"?"#FF5A3C":"#F27D93"}"/>`).join("");
+  const ticks=logDates.map(d=>`<rect x="${fx(X(d)-1,1)}" y="${H-6}" width="2" height="6" fill="rgba(255,90,60,.4)"/>`).join("");
+
+  const latest=pts[pts.length-1], before=pts[pts.length-2];
+  const delta=before?latest.v-before.v:null;
+  const st=mStatus(mk,latest.v);
+  h+=`<div class="card pad mb3">
+    <div class="row between center mb2">
+      <span class="eyebrow">${esc(M.label)} &middot; ${esc(M.unit)}</span>
+      <span class="data" style="color:${st==="in"?"var(--washi)":"var(--alert)"}">${trim(latest.v)}${delta!=null&&Math.abs(delta)>0.001?` <span class="dlt">${delta>0?"▲":"▼"} ${trim(Math.abs(delta))}</span>`:""}</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="140" preserveAspectRatio="none" aria-label="${esc(M.label)} over time with doses beneath">
+      ${band}${ticks}${line}${dots}
+      <line x1="0" y1="${H-.5}" x2="${W}" y2="${H-.5}" stroke="rgba(242,237,230,.14)"/>
+    </svg>
+    <div class="row between eyebrow" style="margin-top:2px">
+      <span>${first.slice(5)}</span>
+      <span>band ${trim(lo)}–${trim(hi)}${fit&&logDates.length?` &middot; ticks = ${esc(fit.name)}`:""}</span>
+      <span>${last.slice(5)}</span>
+    </div>
+    ${pts.length===1?`<div class="eyebrow plain" style="margin-top:8px">One panel so far. A second one is what turns this into a direction.</div>`:""}
+  </div>`;
+
+  if(overlay.length>1)
+    h+=`<div class="chips mb3">${overlay.map(x=>
+      `<button class="${fit&&x.id===fit.id?"shu":""}" data-act="focus:${x.id}">${esc(x.name)}</button>`).join("")}</div>`;
+
+  h+=`<div class="card pad mb3"><div class="eyebrow mb3">推移 &middot; every panel</div><div class="col gap2">`+
+    pts.slice().reverse().map((p,i,arr)=>{
+      const nxt=arr[i+1];
+      const d=nxt?p.v-nxt.v:null;
+      const s2=mStatus(mk,p.v);
+      return `<div class="row between center gap2">
+        <span class="data none">${p.date}</span>
+        <span class="data f1" style="text-align:right;color:${s2==="in"?"var(--washi)":"var(--alert)"}">${trim(p.v)} ${esc(M.unit)}
+          ${d!=null?`<span class="dlt">${d>0?"▲":d<0?"▼":"="} ${trim(Math.abs(d))}</span>`:""}
+          <span class="eyebrow plain">${s2==="in"?"in range":s2}</span></span>
+      </div>`;
+    }).join("")+`</div></div>`;
+
+  const rk=fit?refFor(fit):null;
+  if(rk&&(REF[rk].labs||[]).some(x=>x.m===mk)){
+    const line2=REF[rk].labs.find(x=>x.m===mk);
+    h+=`<div class="card gold pad mb3">
+      <div class="eyebrow mb2" style="color:var(--kin)">参照 &middot; ${esc(refTitle(rk))} and ${esc(M.label)}</div>
+      <p class="sm" style="margin:0;line-height:1.6">${esc(line2.t)}</p>
+      <button class="tiny" style="margin-top:10px" data-act="ref:${esc(rk)}">Open the reference entry</button>
+    </div>`;
+  }
+  return h;
+}
+
 function viewTrends(){
   const seg = `<div class="row gap2 mb4">
-    <button class="f1 ${UI.trView!=="body"?"shu":""}" data-act="trview:dose">投与 Doses</button>
-    <button class="f1 ${UI.trView==="body"?"shu":""}" data-act="trview:body">身体 Body</button></div>`;
+    <button class="f1 ${UI.trView==="dose"?"shu":""}" data-act="trview:dose">投与 Doses</button>
+    <button class="f1 ${UI.trView==="body"?"shu":""}" data-act="trview:body">身体 Body</button>
+    <button class="f1 ${UI.trView==="horm"?"shu":""}" data-act="trview:horm">内分 Hormones</button></div>`;
   if(UI.trView==="body") return seg+viewBody();
+  if(UI.trView==="horm") return seg+viewHormones();
   if(!S.items.length) return seg+`<div class="card flat pad sm muted">Trends appear once you've logged a few doses.</div>`;
   const fid = UI.focus||S.items[0].id;
   const it = S.items.find(x=>x.id===fid);
@@ -2777,10 +2992,10 @@ function newDraft(kind){
     doseMode:"amount",cvMg:10,cvWater:1,cvUnits:10,
     freq:"daily",days:[1,2,3,4,5],interval:kind==="peptide"?7:2,perDay:1,
     startDate:today(),cycleOn:"",cycleOff:"",leadDays:DEFAULT_LEAD,notes:"",
-    timing:kind==="peptide"?null:"morning",withFood:false,nutrient:"",pclass:"",active:true};
+    timing:kind==="peptide"?null:"morning",withFood:false,nutrient:"",pclass:"",form:"",active:true};
 }
 function applyLib(D,x){
-  Object.assign(D,{name:x.n,dose:x.noDose?"":x.dose,unit:x.u,nutrient:x.nut||"",
+  Object.assign(D,{name:x.n,dose:x.noDose?"":x.dose,unit:x.u,nutrient:x.nut||"",form:x.form||"",
     pclass:x.pclass||"",research:x.research?1:0,noDose:x.noDose?1:0,
     titrate:x.titrate||"",planStr:x.planStr||"",plan:x.planStr?parsePlan(x.planStr):null});
   if(x.t){ D.timing=x.t; D.withFood=!!x.food; }
@@ -2945,15 +3160,23 @@ function logReadout(){
 function modalBatch(){
   const d = UI.draft, it = S.items.find(x=>x.id===d.itemId);
   const pep = it?isPep(it):true;
+  const premix = pep&&d.form==="premix";
   return `<div>
     ${sheetHead(d.existing?"Edit stock":"Add stock","在庫")}
     <label class="eyebrow">Item</label>
     <select class="mb3" style="margin-top:5px" data-field="itemId">
       ${S.items.map(x=>`<option value="${x.id}" ${d.itemId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}
     </select>
+    ${pep?`<label class="eyebrow">What's in the vial</label>
+    <div class="row gap2" style="margin:7px 0 12px">
+      <button class="f1 ${d.form!=="premix"?"shu":""}" data-act="bform:powder">Powder to mix</button>
+      <button class="f1 ${d.form==="premix"?"shu":""}" data-act="bform:premix">Premixed solution</button>
+    </div>`:""}
     <div class="row gap2 mb1">
-      <div class="f1"><label class="eyebrow">${pep?"mg per vial":"Servings per container"}</label>
-        <input class="${errCls(pep?"mg":"servings")}" style="margin-top:5px" data-field="${pep?"mg":"servings"}" value="${esc(pep?d.mg:d.servings)}" inputmode="decimal" placeholder="${pep?"10":"60"}">${ferr(pep?"mg":"servings")}</div>
+      <div class="f1"><label class="eyebrow">${!pep?"Servings per container":premix?"mg in the vial":"mg per vial"}</label>
+        <input class="${errCls(pep?"mg":"servings")}" style="margin-top:5px" data-field="${pep?"mg":"servings"}" value="${esc(pep?d.mg:d.servings)}" inputmode="decimal" placeholder="${!pep?"60":premix?"2000":"10"}">${ferr(pep?"mg":"servings")}</div>
+      ${premix?`<div class="f1"><label class="eyebrow">mL in the vial</label>
+        <input class="${errCls("ml")}" style="margin-top:5px" data-field="ml" value="${esc(d.ml)}" inputmode="decimal" placeholder="10">${ferr("ml")}</div>`:""}
       <div class="f1"><label class="eyebrow">How many</label>
         <input style="margin-top:5px" data-field="sealed" value="${esc(d.sealed)}" inputmode="numeric"></div>
     </div>
@@ -2983,6 +3206,14 @@ function batchReadout(){
     return `${trim(serv*cnt)} servings across this batch, about ${dpw>0?Math.floor(serv*cnt/dpw*7):0} days at ${fx(dpw)} per week.`;
   }
   const dm = toMcg(num(it.dose),it.unit);
+  if(d.form==="premix"){
+    const mg=num(d.mg), ml=num(d.ml);
+    if(!mg||!ml) return "";
+    const conc=mg/ml;
+    const per=dm?Math.floor(mg*1000/dm):null;
+    return `${trim(conc)} mg/mL. ${per!=null?`At ${it.dose}${it.unit} per dose that's about ${per} doses per vial, ${per*num(d.sealed||0)} across this batch, `:""}`+
+      `${dm?`a ${fx(dm/(conc*1000)*100)} unit draw on a U-100 syringe.`:"set the dose in mg or mcg to see the draw."} Nothing to reconstitute.`;
+  }
   if(!dm||!num(d.mg)) return "";
   const per = Math.floor(num(d.mg)*1000/dm);
   const w = stdWater(d.mg);
@@ -2998,6 +3229,18 @@ function waterOptions(mg){
 function modalRecon(){
   const d = UI.draft, it = S.items.find(x=>x.id===d.itemId);
   const std = stdWater(d.mg)||1;
+  if(d.premix) return `<div>
+    ${sheetHead("Open a vial","開封 &middot; premixed")}
+    <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${trim(num(d.mg))}mg in ${trim(num(d.water))}mL</div>
+    <div id="readout" class="mb4">${reconReadout()}</div>
+    <div class="row gap2 mb2">
+      <div class="f1"><label class="eyebrow">Date opened</label>
+        <input style="margin-top:5px" type="date" data-field="reconDate" value="${esc(d.reconDate)}"></div>
+      <div class="f1"><label class="eyebrow">Use within (days)</label>
+        <input style="margin-top:5px" data-field="budDays" value="${esc(d.budDays)}" inputmode="numeric" placeholder="none"></div>
+    </div>
+    <div class="eyebrow plain mb4" style="line-height:1.6">Oil in a sealed vial keeps for years, so this can stay empty and nothing will count down. Fill it in if you'd rather track a window from the first puncture.</div>
+    <button class="shu wide" data-act="saveRecon">Open vial and take one from stock</button></div>`;
   return `<div>
     ${sheetHead("Open a vial","溶解 &middot; reconstitute")}
     <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${d.mg}mg</div>
@@ -3039,7 +3282,9 @@ function reconReadout(){
     <b>${units?fx(units):"—"} units</b>
     <div class="eyebrow plain">per ${it.dose}${esc(it.unit)} dose on a U-100 syringe &middot; ${ml?fx(ml,3):"—"} mL</div>
     <div class="eyebrow plain" style="margin-top:7px">${conc?fx(conc/1000,2)+" mg/mL":"—"} &middot; ${trim(num(d.water))} mL total in the vial &middot; about ${doses??"—"} doses</div>
-    <div class="eyebrow plain" style="margin-top:5px">Doses per vial come from the powder, not the water &mdash; ${trim(num(d.mg))} mg at ${it.dose}${esc(it.unit)} is ${doses??"—"} doses however you dilute it. Water only changes the size of the draw.</div>
+    <div class="eyebrow plain" style="margin-top:5px">${d.premix
+      ?`Concentration is whatever the label says &mdash; nothing here dilutes it. ${trim(num(d.mg))} mg at ${it.dose}${esc(it.unit)} is ${doses??"—"} doses.`
+      :`Doses per vial come from the powder, not the water &mdash; ${trim(num(d.mg))} mg at ${it.dose}${esc(it.unit)} is ${doses??"—"} doses however you dilute it. Water only changes the size of the draw.`}</div>
     ${units>0&&units<5?`<div class="eyebrow plain" style="color:var(--kin);margin-top:7px">That's a small mark to hit on the barrel. If you'd rather have a bigger draw, doubling the water doubles the units without changing the dose.</div>`:""}
     ${cmp}
     ${!dm?`<div class="eyebrow plain" style="color:var(--kin);margin-top:7px">This item's dose is set in iu, which has no fixed conversion to mg &mdash; switch the dose to mcg or mg to get draw math and dose counts.</div>`:""}
@@ -3271,6 +3516,7 @@ document.addEventListener("click", async e => {
     return renderModal();
   }
   if(act==="bfocus"){ UI.bodyFocus=a; return render(); }
+  if(act==="hmk"){ UI.hmk=a; return render(); }
   if(act==="addBody"){
     UI.modal="body";
     UI.draft={id:uid(),date:today(),weight:"",waist:"",sys:"",dia:"",rhr:""};
@@ -3456,18 +3702,22 @@ document.addEventListener("click", async e => {
   }
 
   if(act==="addBatch"){
+    const first=S.items[0];
     UI.modal="batch";
-    UI.draft={id:uid(),itemId:S.items[0]?.id||"",mg:"",servings:"",sealed:1,
+    UI.draft={id:uid(),itemId:first?.id||"",mg:"",ml:"",servings:"",sealed:1,
+      form:first&&first.form==="premix"?"premix":"",
       addedDate:today(),lot:"",source:"",location:"",cost:""};
     return renderModal();
   }
+  if(act==="bform"){ D.form=a==="premix"?"premix":""; return renderModal(); }
   if(act==="editBatch"){ UI.modal="batch"; UI.draft={...S.batches.find(x=>x.id===a),existing:true}; return renderModal(); }
   if(act==="saveBatch"){
     const it=S.items.find(x=>x.id===D.itemId);
     if(!it) return;
-    if(isPep(it)&&!(num(D.mg)>0)){ UI.formErr={field:"mg",msg:"How many mg per vial?"}; return renderModal(); }
+    if(isPep(it)&&!(num(D.mg)>0)){ UI.formErr={field:"mg",msg:"How many mg in the vial?"}; return renderModal(); }
+    if(isPep(it)&&D.form==="premix"&&!(num(D.ml)>0)){ UI.formErr={field:"ml",msg:"How many mL in the vial?"}; return renderModal(); }
     if(!isPep(it)&&!(num(D.servings)>0)){ UI.formErr={field:"servings",msg:"How many servings per container?"}; return renderModal(); }
-    const bt={...D,mg:num(D.mg),servings:num(D.servings),sealed:parseInt(D.sealed)||0,cost:num(D.cost)};
+    const bt={...D,mg:num(D.mg),ml:num(D.ml),servings:num(D.servings),sealed:parseInt(D.sealed)||0,cost:num(D.cost)};
     delete bt.existing;
     S.batches = S.batches.some(x=>x.id===bt.id)?S.batches.map(x=>x.id===bt.id?bt:x):[...S.batches,bt];
     UI.modal=null; UI.draft=null; return commit();
@@ -3482,16 +3732,19 @@ document.addEventListener("click", async e => {
 
   if(act==="recon"){
     const bt=S.batches.find(x=>x.id===a);
+    const premix=bt.form==="premix";
     UI.modal="recon";
-    UI.draft={id:uid(),batchId:bt.id,itemId:bt.itemId,mg:bt.mg,water:stdWater(bt.mg)||1,
-      reconDate:today(),budDays:DEFAULT_BUD,lot:bt.lot};
+    UI.draft={id:uid(),batchId:bt.id,itemId:bt.itemId,mg:bt.mg,premix:premix?1:0,
+      water:premix?num(bt.ml):(stdWater(bt.mg)||1),
+      reconDate:today(),budDays:premix?"":DEFAULT_BUD,lot:bt.lot};
     return renderModal();
   }
   if(act==="water"){ D.water=Number(a); return renderModal(); }
   if(act==="saveRecon"){
     if(!(num(D.water)>0)){ UI.formErr={field:"water",msg:"How much water went in?"}; return renderModal(); }
     S.vials=[...S.vials,{id:D.id,kind:"vial",itemId:D.itemId,batchId:D.batchId,mg:num(D.mg),
-      water:num(D.water),reconDate:D.reconDate,budDays:parseInt(D.budDays)||DEFAULT_BUD,
+      water:num(D.water),reconDate:D.reconDate,premix:D.premix?1:0,
+      budDays:D.premix?(parseInt(D.budDays)||0):(parseInt(D.budDays)||DEFAULT_BUD),
       lot:D.lot,finished:false}];
     S.batches=S.batches.map(x=>x.id===D.batchId?{...x,sealed:Math.max(0,(x.sealed||0)-1)}:x);
     UI.modal=null; UI.draft=null; return commit();
@@ -3686,6 +3939,12 @@ document.addEventListener("change", e => {
   if(f&&UI.draft&&e.target.tagName==="SELECT"){
     UI.draft[f]=e.target.value;
     if(f==="sex"){ S.profile.sex=e.target.value; store.save(S); }
+    /* switching to a different item on the stock sheet should bring that
+       item's form with it, or the toggle describes the previous one */
+    if(UI.modal==="batch"&&f==="itemId"&&!UI.draft.existing){
+      const pick=S.items.find(x=>x.id===e.target.value);
+      UI.draft.form=pick&&pick.form==="premix"?"premix":"";
+    }
     if(UI.modal==="batch"||UI.modal==="log"||UI.modal==="item"||UI.modal==="panel") renderModal();
   }
 });
