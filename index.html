@@ -32,7 +32,7 @@ body{
     radial-gradient(700px 420px at 4% 102%, rgba(140,27,42,.20), transparent 66%),
     linear-gradient(178deg,#0B0A0C 0%,#141017 52%,#0B0A0C 100%);
   background-attachment:fixed;min-height:100vh;
-  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  padding-bottom:calc(104px + env(safe-area-inset-bottom));
 }
 .display{font-family:"Shippori Mincho",Georgia,serif;font-weight:800;letter-spacing:.01em;}
 .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;}
@@ -276,7 +276,7 @@ h1,h2{margin:0;}
    STORAGE
    ============================================================ */
 const KEY = "peptide-log-v1";
-const REV = "r10";
+const REV = "r15";
 const store = {
   async load(){
     try{
@@ -297,7 +297,7 @@ let S = { items:[], logs:[], batches:[], vials:[], labs:[], profile:{flags:[],se
 let UI = { tab:"today", date:null, modal:null, draft:null, focus:null, range:30,
            err:"", filter:"all", moreFlags:false, scanMsg:"", labGroup:"all",
            checkView:"find", formErr:null, csel:null, trView:"dose", bodyFocus:null, hmk:null,
-           stackView:"list", refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
+           stackView:"list", stag:null, refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
 
 /* ============================================================
    NUTRIENT REFERENCE
@@ -473,6 +473,29 @@ const MGROUPS = [["blood","血","Iron & blood count"],["vitmin","栄","Vitamins 
   ["metab","代","Metabolic"],["lipid","脂","Lipids"],["organ","臓","Liver & kidney"],
   ["horm","内","Hormones & thyroid"],["infl","炎","Inflammation"]];
 
+/* How a day felt. Two seconds a day is the whole design constraint, so this
+   is a fixed set of taps rather than a text box. The value isn't any single
+   day, it's what the rate does either side of a compound starting. */
+const SIDE_TAGS = [
+  ["sleep","睡眠","Sleep",[
+    ["nightSweats","Night sweats"],["insomnia","Poor sleep"],
+    ["wokeRested","Woke rested"],["vividDreams","Vivid dreams"]]],
+  ["mood","気分","Mood and head",[
+    ["anxious","Anxious"],["irritable","Irritable"],["lowMood","Flat mood"],
+    ["brainFog","Foggy"],["goodDay","Good day"]]],
+  ["body","身体","Body",[
+    ["tired","Wiped out"],["headache","Headache"],["jointPain","Joints ache"],
+    ["bloat","Puffy"],["acne","Skin broke out"],["breathless","Out of breath"],
+    ["numbHands","Numb hands"]]],
+  ["drive","調子","Drive and training",[
+    ["lowLibido","Libido down"],["highLibido","Libido up"],
+    ["pumps","Good pumps"],["strong","Strong session"],
+    ["appetiteUp","Hungry"],["appetiteDown","No appetite"]]]
+];
+const TAG_LABEL = (()=>{ const m={}; for(const [,,,ts] of SIDE_TAGS) for(const [k,l] of ts) m[k]=l; return m; })();
+const ALL_TAGS = Object.keys(TAG_LABEL);
+const sideFor = d => (S.sides||[]).find(x=>x.date===d)||null;
+
 const MARKERS = {
   hct:{label:"Hematocrit",unit:"%",g:"blood",r:[38.3,48.6],rf:[35.5,44.9],alias:"hematocrit|hct"},
   hgb:{label:"Hemoglobin",unit:"g/dL",g:"blood",r:[13.2,16.6],rf:[11.6,15.0],alias:"hemoglobin|hgb"},
@@ -644,6 +667,13 @@ const ML_PER_10MG = 1;
 const stdWater = mg => Math.round((num(mg)/10)*ML_PER_10MG*100)/100;
 /* A U-100 syringe: 100 units per mL. Units are a mark, not an amount —
    this converts a draw on a specific mix into the mass it delivers. */
+/* iu measures biological activity and only a few things are dosed in it.
+   The marks on an insulin syringe are volume, which is a different thing
+   entirely, and picking iu when you meant those is the easiest mistake
+   this form allows. */
+const IU_COMPOUNDS = /hcg|chorionic|somatropin|hgh|growth hormone|insulin|menotropin|fsh/i;
+const iuLooksWrong = d => d && d.unit==="iu" && d.kind==="peptide"
+  && !IU_COMPOUNDS.test(String(d.name||""));
 function unitsToMass(mg,w,u){
   const mcg = (mg*1000/w)*(u/100);
   return mcg>=1000 ? {dose:Math.round(mcg)/1000,unit:"mg"} : {dose:Math.round(mcg*100)/100,unit:"mcg"};
@@ -725,6 +755,17 @@ function schedText(p){
 }
 const isMass = u => u==="mcg"||u==="mg"||u==="g";
 function toMcg(v,u){ return u==="g"?v*1e6:u==="mg"?v*1000:u==="mcg"?v:null; }
+/* iu measures activity, not mass, and nothing converts between the two
+   without knowing the specific preparation. So a vial keeps its own
+   potency unit and the arithmetic happens inside whichever one it is:
+   mass counts in mcg, iu counts in iu. */
+const potUnit = (v,it) => v&&v.pu ? v.pu : (it&&it.unit==="iu" ? "iu" : "mg");
+const potTotal = (v,it) => potUnit(v,it)==="iu" ? num(v.mg) : num(v.mg)*1000;
+function toPot(val,unit,pu){
+  if(pu==="iu") return unit==="iu"?num(val):null;
+  return toMcg(num(val),unit);
+}
+const potLabel = pu => pu==="iu" ? "iu" : "mcg";
 function toCanon(dose,unit,nut){
   if(!nut) return null;
   if(unit==="iu") return nut.iu?dose*nut.iu:null;
@@ -736,23 +777,44 @@ function toCanon(dose,unit,nut){
   return null;
 }
 
+/* A vial holds one compound or several in the same solution. Either way
+   what leaves it is volume, so the arithmetic runs on mL and each compound
+   is just a concentration in it. Drawing for one empties the rest at the
+   same rate, which is the whole point of a blend. */
+function vialComps(v){
+  return Array.isArray(v.blend)&&v.blend.length
+    ? v.blend.map(c=>({itemId:c.itemId,mg:num(c.mg),pu:c.pu||"mg"}))
+    : [{itemId:v.itemId,mg:num(v.mg),pu:v.pu||"mg"}];
+}
+const compBase = c => c.pu==="iu" ? c.mg : c.mg*1000;
 function vialMath(v,it){
-  const totalMcg = num(v.mg)*1000, water = num(v.water);
+  const water = num(v.water);
+  const comps = vialComps(v);
+  const me = (it&&comps.find(c=>c.itemId===it.id))||comps[0];
+  const pu = me.pu;
+  const totalMcg = compBase(me);
   const conc = water>0?totalMcg/water:0;
-  const drawn = S.logs.filter(l=>l.vialId===v.id).reduce((a,l)=>a+(toMcg(num(l.dose),l.unit)||0),0);
-  const remainMcg = Math.max(0,totalMcg-drawn);
-  const doseMcg = it?toMcg(num(it.dose),it.unit):null;
+  /* every draw off this vial costs volume, whichever compound it was for */
+  const drawnMl = S.logs.filter(l=>l.vialId===v.id).reduce((a,l)=>{
+    const c = comps.find(x=>x.itemId===l.itemId)||comps[0];
+    const cc = water>0?compBase(c)/water:0;
+    const amt = toPot(l.dose,l.unit,c.pu);
+    return a + (cc&&amt ? amt/cc : 0);
+  },0);
+  const remainMl = Math.max(0,water-drawnMl);
+  const remainMcg = conc*remainMl;
+  const doseMcg = it?toPot(it.dose,it.unit,pu):null;
   const perDoseMl = doseMcg&&conc?doseMcg/conc:0;
   /* Powder gets a use-by window from the day water went in. Oil arrives
      already in solution and keeps for years, so a window there is optional
      and blank means no clock at all. */
   const bud = v.premix ? (num(v.budDays)>0?num(v.budDays):null) : (v.budDays??DEFAULT_BUD);
   const age = between(v.reconDate,today());
-  return {conc,remainMcg,remainMl:conc?remainMcg/conc:0,perDoseMl,units:perDoseMl*100,
-    premix:!!v.premix,
-    dosesLeft:doseMcg?Math.floor(remainMcg/doseMcg):null,
-    dosesTotal:doseMcg?Math.floor(totalMcg/doseMcg):null,
-    pct:totalMcg?remainMcg/totalMcg:0,age,bud,
+  return {conc,remainMcg,remainMl,perDoseMl,units:perDoseMl*100,
+    premix:!!v.premix,pu,unitLabel:potLabel(pu),comps,blend:comps.length>1,
+    dosesLeft:perDoseMl?Math.floor(remainMl/perDoseMl):null,
+    dosesTotal:perDoseMl?Math.floor(water/perDoseMl):null,
+    pct:water?remainMl/water:0,age,bud,
     budLeft:bud!=null?bud-age:null,expired:bud!=null&&age>bud};
 }
 function contMath(v){
@@ -761,15 +823,23 @@ function contMath(v){
   return {dosesLeft:Math.max(0,total-used),dosesTotal:total,pct:total?Math.max(0,total-used)/total:0,used};
 }
 function supply(it){
-  const mine = S.batches.filter(b=>b.itemId===it.id);
+  const mine = S.batches.filter(b=>b.itemId===it.id
+    ||(Array.isArray(b.blend)&&b.blend.some(c=>c.itemId===it.id)));
   const sealed = mine.reduce((a,b)=>a+(b.sealed||0),0);
-  const open = S.vials.filter(v=>v.itemId===it.id&&!v.finished);
+  const open = S.vials.filter(v=>!v.finished&&vialComps(v).some(c=>c.itemId===it.id));
   const dpw = dosesPerWeek(it), lead = it.leadDays??DEFAULT_LEAD;
   let dosesLeft = null;
   if(isPep(it)){
-    const doseMcg = toMcg(num(it.dose),it.unit);
-    if(!doseMcg||!isMass(it.unit)) return {sealed,open:open.length,unmeasured:true};
-    const sealedMcg = mine.reduce((a,b)=>a+(b.sealed||0)*num(b.mg)*1000,0);
+    const pu = it.unit==="iu" ? "iu" : "mg";
+    const doseMcg = toPot(it.dose,it.unit,pu);
+    /* a vial labelled in the other kind of unit can't be counted against
+       this dose, and guessing a conversion would be worse than saying so */
+    const mismatch = mine.some(b=>potUnit(b,it)!==pu)||open.some(v=>potUnit(v,it)!==pu);
+    if(!doseMcg||mismatch) return {sealed,open:open.length,unmeasured:true,mismatch};
+    const sealedMcg = mine.reduce((a,b)=>{
+      const c=(Array.isArray(b.blend)&&b.blend.find(x=>x.itemId===it.id))||null;
+      return a+(b.sealed||0)*(c?compBase({mg:num(c.mg),pu:c.pu||"mg"}):potTotal(b,it));
+    },0);
     const openMcg = open.reduce((a,v)=>a+vialMath(v,it).remainMcg,0);
     dosesLeft = Math.floor((sealedMcg+openMcg)/doseMcg);
   }else{
@@ -782,7 +852,7 @@ function supply(it){
   const costed = mine.filter(b=>num(b.cost)>0);
   const avgCost = costed.length?costed.reduce((a,b)=>a+num(b.cost),0)/costed.length:0;
   const perUnit = isPep(it)
-    ?(mine[0]?Math.floor(num(mine[0].mg)*1000/(toMcg(num(it.dose),it.unit)||1)):0)
+    ?(mine[0]?Math.floor(potTotal(mine[0],it)/(toPot(it.dose,it.unit,potUnit(mine[0],it))||1)):0)
     :(mine[0]?num(mine[0].servings):0);
   return {sealed,open:open.length,dosesLeft,daysLeft,dpw,lead,
     orderBy:daysLeft!=null?shift(today(),Math.max(0,daysLeft-lead)):null,
@@ -790,7 +860,11 @@ function supply(it){
     costPerDose:avgCost&&perUnit?avgCost/perUnit:0,
     value:mine.reduce((a,b)=>a+(b.sealed||0)*num(b.cost),0)};
 }
-const lowAlerts = () => S.items.filter(i=>i.active).map(i=>({it:i,s:supply(i)})).filter(x=>x.s.low);
+const isTracked = it => S.batches.some(b=>b.itemId===it.id
+    ||(Array.isArray(b.blend)&&b.blend.some(c=>c.itemId===it.id)))
+  || S.vials.some(v=>!v.finished&&vialComps(v).some(c=>c.itemId===it.id));
+const lowAlerts = () => S.items.filter(i=>i.active&&isTracked(i))
+  .map(i=>({it:i,s:supply(i)})).filter(x=>x.s.low&&!x.s.unmeasured);
 
 /* ============================================================
    LAB PANEL PARSER
@@ -1757,7 +1831,7 @@ const REF = {
  effects:["Water retention","Carpal tunnel symptoms","Joint pain","Numb or tingling hands","Raised blood glucose","Headache","Injection site reaction","Gynecomastia in some"],
  watch:[{t:"Growth hormone and IGF-1 both tell cells to divide. Active cancer is a contraindication in the labeling, not a caution."},{t:"Insulin resistance is the reliable effect here, not the rare one. Medication doses set before this started may not fit after it.",flags:["diabetes"]},{t:"Fluid retention adds to what testosterone already does, and blood pressure is where the two meet.",flags:["trt","bp"]},{t:"It can unmask a thyroid that was quietly compensating, so TSH and free T4 are worth having on both sides of starting.",flags:["thyroid"]},{t:"This is a counterfeit-heavy market. A generic vial labeled in iu tells you nothing about what is in it, and the price gap between real and fake is the whole business model."}],
  labs:[{m:"igf1",d:"up",t:"The marker that actually tracks the dose. Growth hormone itself is pulsatile and a single serum draw says close to nothing, so clinics titrate against IGF-1 instead. Reference ranges are age banded, which means a result that reads normal for a 25 year old is high for a 55 year old."},{m:"glucose",d:"up",t:"Rises through direct insulin antagonism, often within the first weeks."},{m:"insulin",d:"up",t:"Fasting insulin climbs before fasting glucose does. Same process, earlier signal."},{m:"a1c",d:"up",t:"A three month average, so it confirms a trend rather than catching one."},{m:"ft4",d:"down",t:"Conversion of T4 to T3 increases, which can expose an underactive thyroid that was compensating on its own."},{m:"trig",d:"down",t:"Lipids generally improve modestly, triglycerides most consistently."}],
- store:"Refrigerate. Pharmaceutical pens and cartridges carry a brand-specific in-use window, and that window governs over any general rule."},
+ store:"Refrigerate. Pharmaceutical pens and cartridges carry a brand-specific in-use window, and that window governs over any general rule. Track it in whichever unit the label uses, iu or mg, and keep the dose in the same one, since the conversion between them is specific to the preparation and not something to assume."},
 
 "Testosterone cypionate":{t:"drug",aka:"Depo-Testosterone, test cyp; testosterone enanthate behaves the same way",cls:"esterified testosterone, androgen receptor agonist",status:"approved",ctrl:"Schedule III",half:"About 8 days for the cypionate ester",route:"Intramuscular or subcutaneous",
  what:"Testosterone with an eight carbon ester attached so it releases slowly out of an oil depot. FDA approved for male hypogonadism and the most prescribed androgen in the US by a wide margin. Enanthate is the same drug with a slightly shorter ester and behaves interchangeably. It is also the base of nearly every non-medical androgen protocol, which is why an identical vial can be entirely legitimate or entirely not depending on nothing but a prescription.",
@@ -1857,7 +1931,7 @@ const REF = {
  effects:["Raised estradiol","Gynecomastia","Testicular sensitivity","Water retention","Mood changes","Acne","Injection site reaction"],
  watch:[{t:"hCG cross reacts with LH immunoassays. A panel drawn while it is running can show an LH that looks preserved when your own pituitary output is completely suppressed. The same interference makes a pregnancy test positive."},{t:"Estradiol rises out of proportion to the testosterone change, because most of the aromatization is happening inside the testis rather than in fat."},{t:"Urine derived product is a counterfeit-heavy market, and a dose expressed in iu tells you nothing about what is actually in the vial."}],
  labs:[{m:"testT",d:"up",t:"Rises, and in someone not on exogenous testosterone the rise is entirely their own production."},{m:"e2",d:"up",t:"The marker that moves most and most unexpectedly. Local aromatization in the testis is doing it, and it explains gynecomastia appearing after adding hCG to a stable protocol."},{m:"lh",d:"mixed",t:"Not readable while this is running. The assay cannot tell hCG from LH, so the result reflects the drug rather than the pituitary."},{m:"fsh",d:"down",t:"Unaffected by hCG directly, so it stays suppressed if exogenous testosterone is suppressing it. That is the honest read on the fertility side."},{m:"hct",d:"up",t:"Can rise modestly through the testosterone it produces."}],
- store:"Comes as a powder with a diluent. Once reconstituted it behaves like the other peptides in this app: refrigerate, protect from light, and set a use-by window on the Stock page."}
+ store:"Comes as a powder with a diluent, usually 5000 iu to the vial. Once reconstituted it behaves like the other peptides here: refrigerate, protect from light, and set a use-by window. Enter it in iu on the Stock page and how much water you add sets the size of the draw rather than the number of doses. 5000 iu in 3 mL is about 1667 iu/mL, so a 250 iu dose is 15 units on a U-100 syringe."}
 };
 /* Peptide and hormone entries answer to their name and to the aka list.
    Supplements answer to a nutrient key. Orals like oxandrolone are stored
@@ -2262,6 +2336,20 @@ function modalPrep(){
       <div class="eyebrow plain">${days} days from today</div></div>`:""}
     <button class="shu wide" data-act="savePrep">Save</button></div>`;
 }
+function modalSides(){
+  const d=UI.draft, on=new Set(d.tags||[]);
+  return `<div>${sheetHead("How today felt","調子 &middot; "+d.date)}
+    <p class="sm muted" style="margin:-6px 0 15px;line-height:1.6">Tap whatever applied. Nothing here is a symptom report, it's a record of your own days, and it only becomes useful once there are enough of them to compare either side of something starting.</p>
+    ${SIDE_TAGS.map(([g,k,label,tags])=>`
+      <div class="slot" style="margin:0 0 9px"><span class="k">${k}</span><span class="l">${label}</span><span class="r"></span></div>
+      <div class="chips mb3">${tags.map(([t,l])=>
+        `<button class="${on.has(t)?"shu":""}" data-act="sideTag:${t}">${esc(l)}</button>`).join("")}</div>`).join("")}
+    ${fieldRow("Anything worth a note","note",d.note,'placeholder="Optional"')}
+    <div class="row gap2" style="margin-top:4px">
+      ${sideFor(d.date)?`<button class="f1 danger" data-act="sideDel:${d.date}">Clear the day</button>`:""}
+      <button class="f1 shu" data-act="saveSides">Save</button>
+    </div></div>`;
+}
 function modalRef(){
   const k=UI.refKey, e=REF[k];
   if(!e) return `<div>${sheetHead("Reference","参照")}<div class="sm muted">No entry.</div></div>`;
@@ -2276,7 +2364,7 @@ function modalRef(){
 }
 const refCounts = () => {
   const n=t=>Object.values(REF).filter(e=>e.t===t).length;
-  return `参照 &middot; ${n("pep")} peptides &middot; ${n("drug")} hormones &middot; ${n("supp")} supplements`;
+  return `${n("pep")} peptides &middot; ${n("drug")} hormones &middot; ${n("supp")} supplements`;
 };
 function statusLegend(){
   return `<div class="legend mb3">${Object.entries(STATUS).map(([k,v])=>
@@ -2300,7 +2388,7 @@ function refListBody(){
       const inStack=S.items.some(i=>refFor(i)===k);
       return `<button data-act="ref:${esc(k)}">
         <div class="row between center gap2">
-          <span style="font-size:15px">${esc(refTitle(k))}${inStack?` <span class="eyebrow" style="color:var(--shu)">in stack</span>`:""}</span>
+          <span style="font-size:15px">${esc(refTitle(k))}${inStack?`<span class="eyebrow" style="color:var(--shu);margin-left:9px">in stack</span>`:""}</span>
           ${st?`<span class="eyebrow none" style="color:${st.col}">${st.kanji}</span>`:`<span class="eyebrow none">補</span>`}
         </div>
         <div class="eyebrow plain">${esc(e.t!=="supp"?e.cls:(e.forms||"").split(".")[0])}</div>
@@ -2342,16 +2430,22 @@ function tplJSON(){
    ============================================================ */
 function barrel(p,endDate,days=14){
   const need = p.perDay||1;
+  /* nothing counts as missed before the day you actually started using it,
+     so a new item shows an empty run rather than two weeks of red */
+  const mine = S.logs.filter(l=>l.itemId===p.id).map(l=>l.date).sort();
+  const from = mine.length ? (mine[0]<p.startDate?mine[0]:p.startDate) : p.startDate;
   let ticks="",hit=0,due=0;
   for(let i=days-1;i>=0;i--){
     const d = shift(endDate,-i);
+    const live = d>=from && (mine.length>0 || d>=today());
     const cnt = logsFor(p.id,d).length;
-    const isD = isDue(p,d), full = cnt>=need;
+    const isD = live && isDue(p,d), full = cnt>=need;
     if(isD) due++; if(full) hit++;
     ticks += `<i class="tick ${cnt>0?"hit":isD?"due":"off"}" style="height:${full?100:cnt>0?64:isD?52:20}%"></i>`;
   }
   return `<div class="barrel" aria-hidden="true">${ticks}</div>
-    <div class="row between eyebrow" style="margin-top:5px"><span>${days}日前</span><span>${hit}/${due} taken</span></div>`;
+    <div class="row between eyebrow" style="margin-top:5px"><span>${days}日前</span>
+      <span>${mine.length?`${hit}/${due} taken`:"nothing logged yet"}</span></div>`;
 }
 const stat = (l,v,s,tone) =>
   `<div class="stat"><div class="eyebrow">${l}</div><b${tone?` style="color:${tone}"`:""}>${v}</b>${s?`<div class="eyebrow plain">${s}</div>`:""}</div>`;
@@ -2480,6 +2574,20 @@ function viewToday(){
     }
     h += `</div>`;
   }
+
+  const sd = sideFor(UI.date);
+  h += `<div class="card pad2" style="margin-top:14px">
+    <div class="row between center" style="gap:11px">
+      <div class="f1" style="min-width:0">
+        <div class="eyebrow">調子 &middot; how today felt</div>
+        ${sd&&sd.tags.length
+          ?`<div class="row gap2 wrapf" style="margin-top:8px">${sd.tags.map(t=>`<span class="pill">${esc(TAG_LABEL[t]||t)}</span>`).join("")}</div>`
+          :`<div class="sm muted" style="margin-top:4px">Two seconds. It's the part that turns a guess into a pattern.</div>`}
+      </div>
+      <button class="${sd?"":"shu"} tiny none" data-act="sides:${UI.date}">${sd?"Edit":"Tap in"}</button>
+    </div>
+    ${sd&&sd.note?`<p class="sm muted" style="margin:9px 0 0">${esc(sd.note)}</p>`:""}
+  </div>`;
   return h;
 }
 
@@ -2487,10 +2595,11 @@ function viewToday(){
    VIEW — STACK
    ============================================================ */
 function viewStack(){
-  const seg = `<div class="segs">${[["list","一覧 Stack"],["stock","在庫 Stock"],["trend","推移 Trends"]].map(([v,l])=>
+  const seg = `<div class="segs">${[["list","一覧 Stack"],["stock","在庫 Stock"],["trend","推移 Trends"],["sides","調子 Days"]].map(([v,l])=>
     `<button class="${(UI.stackView||"list")===v?"shu":""}" data-act="sview:${v}">${l}</button>`).join("")}</div>`;
   if(UI.stackView==="stock") return seg+viewStock();
   if(UI.stackView==="trend") return seg+viewTrends();
+  if(UI.stackView==="sides") return seg+viewSides();
   if(!S.items.length) return seg+`<div class="card flat pad sm muted">Nothing here yet. Add the first thing you take and the rest of the app has something to work with.
     <div class="row gap2" style="margin-top:13px">
       <button class="f1 shu" data-act="add:peptide">＋ Injectable</button>
@@ -2551,11 +2660,13 @@ function viewStack(){
 /* What you take and how much is left are two facts about one thing. */
 function supplyLine(it){
   const sup = supply(it);
-  const tracked = S.batches.some(b=>b.itemId===it.id)||S.vials.some(v=>v.itemId===it.id&&!v.finished);
+  const tracked = isTracked(it);
   if(sup.unmeasured||!tracked)
     return `<div class="row between center" style="margin-top:11px">
-      <span class="eyebrow plain">${sup.sealed?`${sup.sealed} sealed`:"nothing in stock"}${sup.open?`, ${sup.open} open`:""}</span>
-      <button class="tiny none" data-act="addStockFor:${it.id}">Track supply</button></div>`;
+      <span class="eyebrow plain"${sup.mismatch?' style="color:var(--kin)"':""}>${sup.mismatch
+        ?`Vial is labelled in a different unit than the dose, so nothing can be counted`
+        :`${sup.sealed?`${sup.sealed} sealed`:"nothing in stock"}${sup.open?`, ${sup.open} open`:""}`}</span>
+      ${sup.mismatch?`<button class="tiny none" data-act="edit:${it.id}">Fix the unit</button>`:""}</div>`;
   const pct = sup.daysLeft!=null?Math.max(3,Math.min(100,Math.round(sup.daysLeft/90*100))):0;
   const col = sup.low?"var(--kin)":"var(--hai)";
   return `<div style="margin-top:12px">
@@ -2567,6 +2678,76 @@ function supplyLine(it){
     ${sup.low&&sup.orderBy?`<div class="eyebrow plain" style="margin-top:6px;color:var(--kin)">Order by ${sup.orderBy} to keep ${sup.lead} days of lead</div>`
       :sup.costPerDose?`<div class="eyebrow plain" style="margin-top:6px">$${fx(sup.costPerDose,2)} a dose</div>`:""}
   </div>`;
+}
+
+/* Rate of a tag before something started against the rate since. This is
+   the only question a daily log can actually answer, so it's the only one
+   this view asks. */
+function tagSplit(tag,it){
+  const start=it.startDate;
+  const first=(S.sides||[]).map(x=>x.date).sort()[0];
+  if(!first||!start) return null;
+  const before=[],after=[];
+  for(const e of S.sides){
+    (e.date<start?before:after).push((e.tags||[]).includes(tag));
+  }
+  if(before.length<7||after.length<7) return null;
+  const rate=a=>a.filter(Boolean).length/a.length;
+  return {before:rate(before),after:rate(after),nb:before.length,na:after.length,
+    delta:rate(after)-rate(before)};
+}
+function viewSides(){
+  const days=(S.sides||[]).length;
+  if(!days) return `<div class="card flat pad sm muted">Nothing logged yet. There's a prompt at the bottom of Today, and it takes about two seconds.
+    <div class="eyebrow plain" style="margin-top:11px;line-height:1.6">Once there's a couple of weeks of it, this page compares how often each thing turned up before a compound started against how often since. That comparison is the whole point, and it needs days rather than detail.</div></div>`;
+
+  const counts={};
+  for(const e of S.sides) for(const t of (e.tags||[])) counts[t]=(counts[t]||0)+1;
+  const ranked=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  let h=`<div class="card pad mb3">
+    <div class="row between center mb3"><span class="eyebrow">記録 &middot; ${days} day${days===1?"":"s"} logged</span>
+      <button class="tiny none" data-act="sides:${today()}">Today</button></div>`;
+
+  const span=28, end=today();
+  h+=`<div class="row" style="gap:3px;align-items:flex-end;height:34px">${
+    Array.from({length:span},(_,i)=>{
+      const d=shift(end,-(span-1-i)), e=sideFor(d);
+      const n=e?(e.tags||[]).length:0;
+      const hgt=e?Math.min(34,10+n*5):4;
+      return `<div title="${d}" style="flex:1;height:${hgt}px;border-radius:1px;background:${
+        !e?"rgba(242,237,230,.08)":n>3?"var(--shu)":"var(--shu-dim)"}"></div>`;
+    }).join("")}</div>
+  <div class="row between eyebrow" style="margin-top:5px"><span>${shift(end,-(span-1)).slice(5)}</span><span>today</span></div></div>`;
+
+  const tracked=S.items.filter(i=>i.startDate);
+  const focus=S.items.find(x=>x.id===UI.stag)||tracked[0];
+  if(tracked.length>1)
+    h+=`<div class="chips mb3">${tracked.map(x=>
+      `<button class="${focus&&x.id===focus.id?"shu":""}" data-act="stag:${x.id}">${esc(x.name)}</button>`).join("")}</div>`;
+
+  if(focus){
+    const rows=ranked.map(t=>[t,tagSplit(t,focus)]).filter(([,r])=>r)
+      .sort((a,b)=>Math.abs(b[1].delta)-Math.abs(a[1].delta));
+    h+=`<div class="card pad mb3">
+      <div class="eyebrow mb1">対比 &middot; before and since ${esc(focus.name)}</div>
+      <div class="eyebrow plain mb3">Started ${focus.startDate}</div>`;
+    h+= rows.length?rows.slice(0,10).map(([t,r])=>{
+      const up=r.delta>0, big=Math.abs(r.delta)>=0.2;
+      return `<div class="lab row between center" style="gap:10px">
+        <span class="sm f1">${esc(TAG_LABEL[t]||t)}</span>
+        <span class="data none" style="color:${big?(up?"var(--alert)":"var(--shu)"):"var(--hai)"}">
+          ${Math.round(r.before*100)}% &rarr; ${Math.round(r.after*100)}%
+          <span class="dlt">${up?"▲":r.delta<0?"▼":"="} ${Math.round(Math.abs(r.delta)*100)}</span></span>
+      </div>`;}).join("")
+      :`<div class="sm muted">Not enough days on both sides of ${focus.startDate} yet. This needs at least a week logged before it started and a week since.</div>`;
+    h+=`<div class="eyebrow plain" style="margin-top:12px;line-height:1.6">A change here is a correlation in your own log and nothing more. Sleep, training, stress and the season all move these numbers, and only one thing on the list is a compound.</div></div>`;
+  }
+
+  h+=`<div class="card pad"><div class="eyebrow mb3">頻度 &middot; how often, overall</div>
+    ${ranked.slice(0,12).map(t=>`<div class="lab row between center">
+      <span class="sm">${esc(TAG_LABEL[t]||t)}</span>
+      <span class="data none">${counts[t]} of ${days} &middot; ${Math.round(counts[t]/days*100)}%</span></div>`).join("")}</div>`;
+  return h;
 }
 
 /* ============================================================
@@ -2622,7 +2803,13 @@ function viewStock(){
         h += `<div class="card pad row gap3 mb2 ${m.expired?"spine red":""}">
           <div class="vial"><i style="height:${Math.max(0,Math.min(1,m.pct))*100}%"></i></div>
           <div class="f1">
-            <div class="mono" style="font-size:14px;font-weight:600">${v.mg}mg in ${v.water}mL &middot; ${fx(m.conc/1000,2)} mg/mL${m.premix?` <span class="eyebrow none">premixed</span>`:""}</div>
+            <div class="mono" style="font-size:14px;font-weight:600">${m.blend
+              ?`${m.comps.map(c=>`${trim(c.mg)}${c.pu==="iu"?"iu":"mg"}`).join(" + ")} in ${v.water}mL`
+              :`${v.mg}${m.pu==="iu"?"iu":"mg"} in ${v.water}mL &middot; ${m.pu==="iu"?`${trim(m.conc)} iu/mL`:`${fx(m.conc/1000,2)} mg/mL`}`}${m.premix?` <span class="eyebrow none">premixed</span>`:""}${m.blend?` <span class="eyebrow none" style="color:var(--kin)">${esc(v.blendName||"blend")}</span>`:""}</div>
+            ${m.blend?`<div class="eyebrow plain" style="margin-top:3px">${m.comps.map(c=>{
+              const o=S.items.find(x=>x.id===c.itemId);
+              return `${esc(o?o.name:"unknown")} ${trim(compBase(c)/num(v.water)/(c.pu==="iu"?1:1000))} ${c.pu==="iu"?"iu":"mg"}/mL`;
+            }).join(" &middot; ")}</div>`:""}
             <div class="data">${m.dosesLeft!=null?`${m.dosesLeft} of ${m.dosesTotal} doses left &middot; ${fx(m.remainMl,2)}mL &middot; ${fx(m.units)}u per dose`:`dose is set in iu &mdash; draws and remaining can't be computed from mg`}</div>
             <div class="eyebrow plain" style="margin-top:3px;color:${m.expired?"var(--alert)":"var(--hai)"}">
               Opened ${v.reconDate} &middot; ${m.expired?`${m.age-m.bud}d past your ${m.bud}d window`
@@ -2636,7 +2823,11 @@ function viewStock(){
       h += `<div class="card pad mb2">
         <div class="row between center">
           <div style="min-width:0">
-            <div class="mono" style="font-size:14px;font-weight:600">${isPep(it)?(b.form==="premix"?`${b.mg}mg in ${trim(num(b.ml))}mL &middot; ${trim(num(b.mg)/(num(b.ml)||1))} mg/mL`:`${b.mg}mg sealed`):`${b.servings} servings per container`}</div>
+            <div class="mono" style="font-size:14px;font-weight:600">${isPep(it)?(()=>{const u=potUnit(b,it);
+              if(Array.isArray(b.blend)&&b.blend.length)
+                return `${b.blendName?`${b.blendName} &middot; `:""}${b.blend.map(c=>`${trim(num(c.mg))}${c.pu==="iu"?"iu":"mg"}`).join(" + ")} sealed`;
+              return b.form==="premix"?`${b.mg}${u} in ${trim(num(b.ml))}mL &middot; ${trim(num(b.mg)/(num(b.ml)||1))} ${u}/mL`:`${b.mg}${u} sealed`;})()
+              :`${b.servings} servings per container`}</div>
             <div class="eyebrow plain">Added ${b.addedDate}${b.location?` &middot; ${esc(b.location)}`:""}${b.lot?` &middot; lot ${esc(b.lot)}`:""}</div>
             ${b.source?`<div class="eyebrow plain">${esc(b.source)}</div>`:""}
           </div>
@@ -3150,7 +3341,10 @@ function modalItem(){
       <div style="width:92px"><label class="eyebrow">Unit</label>
         <select style="margin-top:5px" data-field="unit">${unitsFor(d.kind,d.unit).map(u=>`<option ${d.unit===u?"selected":""}>${u}</option>`).join("")}</select></div>
     </div>
-    ${pep?`<div class="eyebrow plain mb3">The amount of peptide, not the mark on the syringe. If you only know your draw, switch to Syringe units above.</div>`:""}`
+    ${iuLooksWrong(d)?`<div class="attn mb3" style="line-height:1.6">
+      <b>iu is a measure of biological activity</b>, and outside hCG, growth hormone and insulin almost nothing is dosed in it. The marks on an insulin syringe are volume, which is a different thing: what 10 of them delivers depends entirely on how the vial was mixed.
+      <button class="tiny" style="margin-top:10px" data-act="dmode:units">Set it by syringe units instead</button></div>`
+    :pep?`<div class="eyebrow plain mb3">The amount of peptide, not the mark on the syringe. If you only know your draw, switch to Syringe units above.</div>`:""}`
     :`<div class="card flat pad2 mb3">
       <p class="sm muted" style="margin:0 0 10px;line-height:1.55">Describe your vial and your draw. Units only mean something for one specific mix, so what's saved is the amount this works out to &mdash; and whenever a vial gets mixed differently, the app tells you the new mark to draw for the same dose.</p>
       <div class="row gap2 mb2">
@@ -3224,7 +3418,7 @@ function modalLog(){
     <input class="mb3" style="margin-top:5px" type="time" data-field="time" value="${esc(d.time||"")}">
     ${open.length?`<label class="eyebrow">${pep?"Draw from":"From container"}</label>
       <select class="mb2" style="margin-top:5px" data-field="vialId">
-        ${open.map(v=>`<option value="${v.id}" ${d.vialId===v.id?"selected":""}>${pep?`${v.mg}mg in ${v.water}mL`:`${contMath(v).dosesLeft} servings left`} &mdash; opened ${v.reconDate}</option>`).join("")}
+        ${open.map(v=>`<option value="${v.id}" ${d.vialId===v.id?"selected":""}>${pep?`${v.mg}${potUnit(v,it)} in ${v.water}mL`:`${contMath(v).dosesLeft} servings left`} &mdash; opened ${v.reconDate}</option>`).join("")}
         <option value="" ${!d.vialId?"selected":""}>Don't track against stock</option>
       </select>
       <div id="readout" class="mb3">${logReadout()}</div>`:""}
@@ -3259,6 +3453,8 @@ function modalBatch(){
   const d = UI.draft, it = S.items.find(x=>x.id===d.itemId);
   const pep = it?isPep(it):true;
   const premix = pep&&d.form==="premix";
+  const pu = it&&it.unit==="iu" ? "iu" : "mg";
+  const PU = pu==="iu" ? "iu" : "mg";
   return `<div>
     ${sheetHead(d.existing?"Edit stock":"Add stock","在庫")}
     <label class="eyebrow">Item</label>
@@ -3271,13 +3467,15 @@ function modalBatch(){
       <button class="f1 ${d.form==="premix"?"shu":""}" data-act="bform:premix">Premixed solution</button>
     </div>`:""}
     <div class="row gap2 mb1">
-      <div class="f1"><label class="eyebrow">${!pep?"Servings per container":premix?"mg in the vial":"mg per vial"}</label>
-        <input class="${errCls(pep?"mg":"servings")}" style="margin-top:5px" data-field="${pep?"mg":"servings"}" value="${esc(pep?d.mg:d.servings)}" inputmode="decimal" placeholder="${!pep?"60":premix?"2000":"10"}">${ferr(pep?"mg":"servings")}</div>
+      <div class="f1"><label class="eyebrow">${!pep?"Servings per container":premix?`${PU} in the vial`:`${PU} per vial`}</label>
+        <input class="${errCls(pep?"mg":"servings")}" style="margin-top:5px" data-field="${pep?"mg":"servings"}" value="${esc(pep?d.mg:d.servings)}" inputmode="decimal" placeholder="${d.hint0?esc(d.hint0):!pep?"60":pu==="iu"?"5000":premix?"2000":"10"}">${ferr(pep?"mg":"servings")}</div>
       ${premix?`<div class="f1"><label class="eyebrow">mL in the vial</label>
         <input class="${errCls("ml")}" style="margin-top:5px" data-field="ml" value="${esc(d.ml)}" inputmode="decimal" placeholder="10">${ferr("ml")}</div>`:""}
       <div class="f1"><label class="eyebrow">How many</label>
         <input style="margin-top:5px" data-field="sealed" value="${esc(d.sealed)}" inputmode="numeric"></div>
     </div>
+    ${pep?blendRows(d,it):""}
+    ${(UI.blendAdded||[]).length?`<div class="attn mb3" style="line-height:1.6">Added ${esc(UI.blendAdded.join(" and "))} to your stack, since a vial can only be counted against compounds that are in it. Set each one's dose and schedule when you're done here.</div>`:""}
     <div id="readout" class="eyebrow plain mb3" style="color:var(--shu)">${batchReadout()}</div>
     <div class="row gap2 mb3">
       <div class="f1"><label class="eyebrow">Date added</label>
@@ -3303,20 +3501,28 @@ function batchReadout(){
     const dpw = dosesPerWeek(it);
     return `${trim(serv*cnt)} servings across this batch, about ${dpw>0?Math.floor(serv*cnt/dpw*7):0} days at ${fx(dpw)} per week.`;
   }
-  const dm = toMcg(num(it.dose),it.unit);
+  const pu = it.unit==="iu" ? "iu" : "mg";
+  const PU = pu==="iu" ? "iu" : "mg";
+  const stated = num(d.mg);
+  const dm = toPot(it.dose,it.unit,pu);
   if(d.form==="premix"){
-    const mg=num(d.mg), ml=num(d.ml);
-    if(!mg||!ml) return "";
-    const conc=mg/ml;
-    const per=dm?Math.floor(mg*1000/dm):null;
-    return `${trim(conc)} mg/mL. ${per!=null?`At ${it.dose}${it.unit} per dose that's about ${per} doses per vial, ${per*num(d.sealed||0)} across this batch, `:""}`+
-      `${dm?`a ${fx(dm/(conc*1000)*100)} unit draw on a U-100 syringe.`:"set the dose in mg or mcg to see the draw."} Nothing to reconstitute.`;
+    const ml=num(d.ml);
+    if(!stated||!ml) return "";
+    const conc=stated/ml;
+    const base=pu==="iu"?stated:stated*1000;
+    const per=dm?Math.floor(base/dm):null;
+    return `${trim(conc)} ${PU}/mL. ${per!=null?`At ${it.dose}${it.unit} per dose that's about ${per} doses per vial, ${per*num(d.sealed||0)} across this batch, `:""}`+
+      `${dm?`a ${fx(dm/(pu==="iu"?conc:conc*1000)*100)} unit draw on a U-100 syringe.`:`set the dose in ${PU} to see the draw.`} Nothing to reconstitute.`;
   }
-  if(!dm||!num(d.mg)) return "";
-  const per = Math.floor(num(d.mg)*1000/dm);
-  const w = stdWater(d.mg);
+  if(!dm||!stated) return "";
+  const base = pu==="iu"?stated:stated*1000;
+  const per = Math.floor(base/dm);
+  if(pu==="iu")
+    return `At ${it.dose} iu per dose that's about ${per} doses per vial, ${per*num(d.sealed||0)} across this batch. `+
+      `How much water goes in is yours to choose: it sets the size of the draw, not the number of doses.`;
+  const w = stdWater(stated);
   return `At ${it.dose}${it.unit} per dose that's about ${per} doses per vial, ${per*num(d.sealed||0)} across this batch. `+
-    `Each ${trim(num(d.mg))} mg vial takes ${trim(w)} mL of water at the 1 mL per 10 mg standard.`;
+    `Each ${trim(stated)} mg vial takes ${trim(w)} mL of water at the 1 mL per 10 mg standard.`;
 }
 
 function waterOptions(mg){
@@ -3324,12 +3530,54 @@ function waterOptions(mg){
   const set = [std/2, std, std*1.5, std*2].map(x=>Math.round(x*100)/100).filter(x=>x>0);
   return [...new Set(set)].sort((a,b)=>a-b);
 }
+/* The blends sold as one product under one name. Amounts are left blank on
+   purpose: vendors mix these at different ratios and the label on the vial
+   you actually bought is the only figure worth entering. The number beside
+   each compound is a placeholder showing what's commonly printed. */
+const BLENDS = [
+  {n:"Wolverine",k:"狼",comps:[["BPC-157",10],["TB-500",10]],
+   d:"BPC-157 and TB-500 together, the pairing most often sold as one vial."},
+  {n:"GLOW",k:"輝",comps:[["GHK-Cu",50],["BPC-157",10],["TB-500",10]],
+   d:"GHK-Cu on top of the same pair. Sold for skin and connective tissue."},
+  {n:"CJC / Ipamorelin",k:"成",comps:[["CJC-1295 (no DAC)",5],["Ipamorelin",5]],
+   d:"The secretagogue pairing, usually mixed in one vial and pinned at night."},
+  {n:"Sermorelin / Ipamorelin",k:"成",comps:[["Sermorelin",5],["Ipamorelin",5]],
+   d:"Same idea with sermorelin in place of CJC."}
+];
+/* Blends: one vial, more than one compound, one shared volume. Drawing for
+   either empties both, which is exactly what the arithmetic has to say. */
+function blendRows(d,it){
+  const others = S.items.filter(x=>isPep(x)&&x.id!==d.itemId);
+  const rows = d.blend||[];
+  const PU = it&&it.unit==="iu"?"iu":"mg";
+  const picker = `<label class="eyebrow">One compound, or a blend</label>
+    <div class="chips" style="margin:7px 0 12px">
+      <button class="${rows.length?"":"shu"}" data-act="blendPreset:solo">Just this one</button>
+      ${BLENDS.map((b,i)=>`<button class="${d.blendName===b.n?"shu":""}" data-act="blendPreset:${i}">${b.k} ${esc(b.n)}</button>`).join("")}
+      ${rows.length&&!d.blendName?`<button class="shu">Custom</button>`:""}
+    </div>
+    ${d.blendName?`<div class="eyebrow plain mb3" style="line-height:1.6">${esc((BLENDS.find(b=>b.n===d.blendName)||{}).d||"")}</div>`:""}`;
+  return `<div style="margin:2px 0 14px">${picker}
+    ${rows.map((r,i)=>{
+      const o=S.items.find(x=>x.id===r.itemId);
+      return `<div class="row gap2 center mb2">
+        <div class="f1" style="min-width:0">
+          <select data-field="blendItem:${i}">${others.map(x=>
+            `<option value="${x.id}" ${r.itemId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
+        </div>
+        <div style="width:92px"><input class="slim" data-field="blendMg:${i}" value="${esc(r.mg)}" inputmode="decimal" placeholder="${r.hint?esc(r.hint):(o&&o.unit==="iu"?"iu":"mg")}"></div>
+        <button class="icon danger" data-act="blendDel:${i}" aria-label="Remove">&#10005;</button>
+      </div>`;}).join("")}
+    ${others.length&&rows.length<3?`<button class="tiny none" data-act="blendAdd">＋ Another compound in the same vial</button>`:""}
+    ${rows.length?`<div class="eyebrow plain" style="margin-top:8px;line-height:1.6">One vial, one volume. Drawing for any of them uses the same liquid, so they run down together and the app counts them that way. Enter what your own label says: vendors mix these at different ratios and the greyed numbers are only what's commonly printed.</div>`:""}
+  </div>`;
+}
 function modalRecon(){
   const d = UI.draft, it = S.items.find(x=>x.id===d.itemId);
   const std = stdWater(d.mg)||1;
   if(d.premix) return `<div>
     ${sheetHead("Open a vial","開封 &middot; premixed")}
-    <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${trim(num(d.mg))}mg in ${trim(num(d.water))}mL</div>
+    <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${trim(num(d.mg))}${d.pu==="iu"?"iu":"mg"} in ${trim(num(d.water))}mL</div>
     <div id="readout" class="mb4">${reconReadout()}</div>
     <div class="row gap2 mb2">
       <div class="f1"><label class="eyebrow">Date opened</label>
@@ -3341,12 +3589,14 @@ function modalRecon(){
     <button class="shu wide" data-act="saveRecon">Open vial and take one from stock</button></div>`;
   return `<div>
     ${sheetHead("Open a vial","溶解 &middot; reconstitute")}
-    <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${d.mg}mg</div>
+    <div class="mono sm muted mb4" style="margin-top:-10px">${esc(it.name)} &middot; ${d.mg}${d.pu==="iu"?"iu":"mg"}</div>
     <label class="eyebrow">Bacteriostatic water added (mL)</label>
     <div class="row gap2" style="margin:7px 0 7px">
       ${waterOptions(d.mg).map(w=>`<button class="f1 mono ${num(d.water)===w?"shu":""}" style="padding:9px 0;font-size:13px" data-act="water:${w}">${trim(w)}${w===std?"*":""}</button>`).join("")}
     </div>
-    <div class="eyebrow plain mb3">* Standard is 1 mL per 10 mg &mdash; ${trim(std)} mL for this ${trim(d.mg)} mg vial.</div>
+    <div class="eyebrow plain mb3">${d.pu==="iu"
+      ?`How much water goes in sets the size of the draw, not the number of doses. More water means an easier number to read on the syringe.`
+      :`* Standard is 1 mL per 10 mg, so ${trim(std)} mL for this ${trim(d.mg)} mg vial.`}</div>
     <input class="mb4 ${errCls("water")}" data-field="water" value="${esc(d.water)}" inputmode="decimal">
     ${ferr("water")}
     <div id="readout" class="mb4">${reconReadout()}</div>
@@ -3380,6 +3630,9 @@ function reconReadout(){
     <b>${units?fx(units):"—"} units</b>
     <div class="eyebrow plain">per ${it.dose}${esc(it.unit)} dose on a U-100 syringe &middot; ${ml?fx(ml,3):"—"} mL</div>
     <div class="eyebrow plain" style="margin-top:7px">${conc?fx(conc/1000,2)+" mg/mL":"—"} &middot; ${trim(num(d.water))} mL total in the vial &middot; about ${doses??"—"} doses</div>
+    ${(d.blend||[]).length>1?`<div class="eyebrow plain" style="margin-top:8px;color:var(--kin);line-height:1.6">This vial holds ${d.blend.map(c=>{
+      const o=S.items.find(x=>x.id===c.itemId);
+      return `${esc(o?o.name:"?")} ${trim(num(c.mg))}${c.pu==="iu"?"iu":"mg"}`;}).join(" and ")}. One draw delivers both, in whatever ratio the vial was filled at.</div>`:""}
     <div class="eyebrow plain" style="margin-top:5px">${d.premix
       ?`Concentration is whatever the label says &mdash; nothing here dilutes it. ${trim(num(d.mg))} mg at ${it.dose}${esc(it.unit)} is ${doses??"—"} doses.`
       :`Doses per vial come from the powder, not the water &mdash; ${trim(num(d.mg))} mg at ${it.dose}${esc(it.unit)} is ${doses??"—"} doses however you dilute it. Water only changes the size of the draw.`}</div>
@@ -3467,7 +3720,8 @@ function renderModal(){
     : UI.modal==="reflist"?modalRefList()
     : UI.modal==="panel"?modalPanel()
     : UI.modal==="addMenu"?modalAddMenu()
-    : UI.modal==="prep"?modalPrep() : "";
+    : UI.modal==="prep"?modalPrep()
+    : UI.modal==="sides"?modalSides() : "";
   el.innerHTML = `<div class="sheet" data-act="close-bg"><div role="dialog" aria-modal="true">${body}</div></div>`;
 }
 
@@ -3635,11 +3889,37 @@ document.addEventListener("click", async e => {
   }
   if(act==="bfocus"){ UI.bodyFocus=a; return render(); }
   if(act==="sview"){ UI.stackView=a; scrollTop(); return render(); }
+  if(act==="sides"){
+    const day=a||UI.date, ex=sideFor(day);
+    UI.modal="sides";
+    UI.draft={date:day,tags:[...(ex?ex.tags:[])],note:ex?ex.note||"":""};
+    return renderModal();
+  }
+  if(act==="sideTag"){
+    const t=new Set(D.tags||[]);
+    t.has(a)?t.delete(a):t.add(a);
+    D.tags=[...t];
+    return renderModal();
+  }
+  if(act==="saveSides"){
+    const rest=(S.sides||[]).filter(x=>x.date!==D.date);
+    S.sides = (D.tags||[]).length||String(D.note||"").trim()
+      ? [...rest,{id:uid(),date:D.date,tags:D.tags||[],note:D.note||""}]
+      : rest;
+    commit("Day saved");
+    UI.modal=null; UI.draft=null; return render();
+  }
+  if(act==="sideDel"){
+    S.sides=(S.sides||[]).filter(x=>x.date!==a);
+    commit("Day cleared");
+    UI.modal=null; UI.draft=null; return render();
+  }
+  if(act==="stag"){ UI.stag=a; return render(); }
   if(act==="addMenu"){ UI.modal="addMenu"; return renderModal(); }
-  if(act==="addStockFor"){
+  if(act==="addStockFor"){ UI.blendAdded=null;
     const it=S.items.find(x=>x.id===a); if(!it) return;
     UI.prevModal=null; UI.modal="batch";
-    UI.draft={id:uid(),itemId:it.id,mg:"",ml:"",servings:"",sealed:1,
+    UI.draft={id:uid(),itemId:it.id,mg:"",ml:"",servings:"",sealed:1,blend:null,
       form:it.form==="premix"?"premix":"",
       addedDate:today(),lot:"",source:"",location:"",cost:""};
     return renderModal();
@@ -3752,7 +4032,12 @@ document.addEventListener("click", async e => {
     applyLib(D,x);
     return renderModal();
   }
-  if(act==="dmode"){ D.doseMode=a; return renderModal(); }
+  if(act==="dmode"){
+    D.doseMode=a;
+    /* coming here from the iu warning, the old unit is the thing being fixed */
+    if(a==="units"&&D.unit==="iu"){ D.unit="mcg"; D.dose=""; }
+    return renderModal();
+  }
   if(act==="nutpick"){ D.nutrient=a||""; D.nutSearch=""; return renderModal(); }
   if(act==="freq"){ D.freq=a; return renderModal(); }
   if(act==="timing"){ D.timing=a; return renderModal(); }
@@ -3836,14 +4121,49 @@ document.addEventListener("click", async e => {
   }
 
   if(act==="addBatch"){
+    UI.blendAdded=null;
     const first=S.items[0];
     UI.modal="batch";
-    UI.draft={id:uid(),itemId:first?.id||"",mg:"",ml:"",servings:"",sealed:1,
+    UI.draft={id:uid(),itemId:first?.id||"",mg:"",ml:"",servings:"",sealed:1,blend:null,
       form:first&&first.form==="premix"?"premix":"",
       addedDate:today(),lot:"",source:"",location:"",cost:""};
     return renderModal();
   }
   if(act==="bform"){ D.form=a==="premix"?"premix":""; return renderModal(); }
+  if(act==="blendPreset"){
+    if(a==="solo"){ D.blend=null; D.blendName=null; return renderModal(); }
+    const b=BLENDS[Number(a)]; if(!b) return;
+    /* a vial can only be counted against compounds that exist in the stack,
+       so anything missing gets created from the library first */
+    const added=[];
+    const ids=b.comps.map(([name])=>{
+      let it=S.items.find(x=>isPep(x)&&x.name.toLowerCase()===name.toLowerCase());
+      if(it) return it.id;
+      const lib=LIB.find(x=>x.n===name);
+      const nd=applyLib(newDraft("peptide"),lib||{n:name,u:"mcg"});
+      S.items=[...S.items,nd]; added.push(name);
+      return nd.id;
+    });
+    if(added.length) store.save(S);
+    D.itemId=ids[0]; D.mg=""; D.blendName=b.n;
+    D.blend=b.comps.slice(1).map(([name,mg],i)=>({itemId:ids[i+1],mg:"",hint:String(mg)}));
+    D.hint0=String(b.comps[0][1]);
+    UI.blendAdded=added;
+    return renderModal();
+  }
+  if(act==="blendAdd"){
+    const others=S.items.filter(x=>isPep(x)&&x.id!==D.itemId
+      &&!(D.blend||[]).some(r=>r.itemId===x.id));
+    if(!others.length) return;
+    D.blend=[...(D.blend||[]),{itemId:others[0].id,mg:""}];
+    D.blendName=null;
+    return renderModal();
+  }
+  if(act==="blendDel"){
+    D.blend=(D.blend||[]).filter((_,i)=>i!==Number(a));
+    D.blendName=null;
+    return renderModal();
+  }
   if(act==="editBatch"){ UI.modal="batch"; UI.draft={...S.batches.find(x=>x.id===a),existing:true}; return renderModal(); }
   if(act==="saveBatch"){
     const it=S.items.find(x=>x.id===D.itemId);
@@ -3851,7 +4171,16 @@ document.addEventListener("click", async e => {
     if(isPep(it)&&!(num(D.mg)>0)){ UI.formErr={field:"mg",msg:"How many mg in the vial?"}; return renderModal(); }
     if(isPep(it)&&D.form==="premix"&&!(num(D.ml)>0)){ UI.formErr={field:"ml",msg:"How many mL in the vial?"}; return renderModal(); }
     if(!isPep(it)&&!(num(D.servings)>0)){ UI.formErr={field:"servings",msg:"How many servings per container?"}; return renderModal(); }
-    const bt={...D,mg:num(D.mg),ml:num(D.ml),servings:num(D.servings),sealed:parseInt(D.sealed)||0,cost:num(D.cost)};
+    const blend=(D.blend||[]).filter(r=>r.itemId&&num(r.mg)>0);
+    if((D.blend||[]).length&&blend.length!==(D.blend||[]).length){
+      UI.formErr={field:"mg",msg:"Every compound in the vial needs an amount."}; return renderModal(); }
+    const bt={...D,mg:num(D.mg),ml:num(D.ml),servings:num(D.servings),sealed:parseInt(D.sealed)||0,
+      cost:num(D.cost),pu:it.unit==="iu"?"iu":"mg",blendName:D.blendName||null,
+      blend: blend.length
+        ? [{itemId:it.id,mg:num(D.mg),pu:it.unit==="iu"?"iu":"mg"},
+           ...blend.map(r=>{ const o=S.items.find(x=>x.id===r.itemId);
+             return {itemId:r.itemId,mg:num(r.mg),pu:o&&o.unit==="iu"?"iu":"mg"}; })]
+        : null};
     delete bt.existing;
     S.batches = S.batches.some(x=>x.id===bt.id)?S.batches.map(x=>x.id===bt.id?bt:x):[...S.batches,bt];
     UI.modal=null; UI.draft=null; return commit();
@@ -3868,7 +4197,9 @@ document.addEventListener("click", async e => {
     const bt=S.batches.find(x=>x.id===a);
     const premix=bt.form==="premix";
     UI.modal="recon";
-    UI.draft={id:uid(),batchId:bt.id,itemId:bt.itemId,mg:bt.mg,premix:premix?1:0,
+    const it0=S.items.find(x=>x.id===bt.itemId);
+    UI.draft={id:uid(),batchId:bt.id,itemId:bt.itemId,mg:bt.mg,pu:potUnit(bt,it0),
+      blend:bt.blend||null,blendName:bt.blendName||null,premix:premix?1:0,
       water:premix?num(bt.ml):(stdWater(bt.mg)||1),
       reconDate:today(),budDays:premix?"":DEFAULT_BUD,lot:bt.lot};
     return renderModal();
@@ -3877,6 +4208,7 @@ document.addEventListener("click", async e => {
   if(act==="saveRecon"){
     if(!(num(D.water)>0)){ UI.formErr={field:"water",msg:"How much water went in?"}; return renderModal(); }
     S.vials=[...S.vials,{id:D.id,kind:"vial",itemId:D.itemId,batchId:D.batchId,mg:num(D.mg),
+      pu:D.pu||"mg",blend:D.blend||null,blendName:D.blendName||null,
       water:num(D.water),reconDate:D.reconDate,premix:D.premix?1:0,
       budDays:D.premix?(parseInt(D.budDays)||0):(parseInt(D.budDays)||DEFAULT_BUD),
       lot:D.lot,finished:false}];
@@ -4009,6 +4341,11 @@ document.addEventListener("input", e => {
   }
   const f = e.target.dataset.field;
   if(!f||!UI.draft) return;
+  if(f.startsWith("blendItem:")||f.startsWith("blendMg:")){
+    const [k,ix]=f.split(":"), i=Number(ix), rows=[...(UI.draft.blend||[])];
+    if(rows[i]){ rows[i]={...rows[i],[k==="blendItem"?"itemId":"mg"]:e.target.value}; UI.draft.blend=rows; }
+    return;
+  }
   UI.draft[f]=e.target.value;
   if(UI.formErr && UI.formErr.field===f){
     UI.formErr = null;
@@ -4104,6 +4441,7 @@ function migrate(d){
   out.profile.sex = out.profile.sex||"m";
   out.meta = out.meta||{lastExport:null};
   out.body = out.body||[];
+  out.sides = out.sides||[];
   delete out.peptides;
   return out;
 }

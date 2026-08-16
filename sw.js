@@ -2,7 +2,7 @@
    The REV string below is what triggers the update prompt. It has to change
    every release or nobody's phone finds out there was one. It matches the
    REV constant in index.html. */
-const REV = "r10";
+const REV = "r15";
 const CACHE = "stack-log-" + REV;
 
 const SHELL = [
