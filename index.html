@@ -32,19 +32,21 @@ body{
     radial-gradient(700px 420px at 4% 102%, rgba(140,27,42,.20), transparent 66%),
     linear-gradient(178deg,#0B0A0C 0%,#141017 52%,#0B0A0C 100%);
   background-attachment:fixed;min-height:100vh;
-  padding-bottom:env(safe-area-inset-bottom);
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
 }
 .display{font-family:"Shippori Mincho",Georgia,serif;font-weight:800;letter-spacing:.01em;}
 .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;}
-.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--hai);}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--hai);}
 .plain{letter-spacing:.02em;text-transform:none;}
 .kanji{font-family:"Shippori Mincho",serif;font-weight:600;}
 .data{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
   font-size:12.5px;color:rgba(242,237,230,.9);}
+/* four sizes and a floor at 11px. anything smaller was decoration */
+.sm,.xs{font-size:13.5px;} .tiny{font-size:12px;}
 input.err,textarea.err{border-color:var(--alert) !important;animation:shake .3s;}
 .ferr{font-size:12px;color:var(--alert);margin:-8px 0 10px;}
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-#toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:80;}
+#toast{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:80;}
 .toast{background:linear-gradient(178deg,#241B26,#141016);border:1px solid rgba(255,90,60,.4);border-radius:3px;
   padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;
   box-shadow:0 14px 34px -14px rgba(0,0,0,.9);animation:rise .3s cubic-bezier(.22,1,.36,1);}
@@ -64,7 +66,7 @@ input.err,textarea.err{border-color:var(--alert) !important;animation:shake .3s;
 .between{justify-content:space-between;} .center{align-items:center;} .end{align-items:flex-end;}
 .f1{flex:1;min-width:0;} .none{flex:none;} .wrapf{flex-wrap:wrap;}
 .mb1{margin-bottom:4px;} .mb2{margin-bottom:8px;} .mb3{margin-bottom:12px;} .mb4{margin-bottom:18px;}
-.sm{font-size:13px;} .xs{font-size:12px;} .muted{color:var(--hai);}
+.muted{color:var(--hai);}
 
 button{font:inherit;cursor:pointer;border-radius:3px;border:1px solid var(--line);
   background:rgba(242,237,230,.04);color:var(--washi);padding:10px 12px;
@@ -78,7 +80,7 @@ button:disabled{opacity:.32;cursor:default;}
   box-shadow:0 6px 20px -8px rgba(255,90,60,.6);}
 .danger{color:var(--alert);} .icon{padding:9px 11px;line-height:1;}
 .wide{width:100%;justify-content:center;}
-.tiny{font-size:11px;padding:5px 8px;}
+.tiny{padding:6px 9px;}
 
 input,select,textarea{background:rgba(11,10,12,.72);border:1px solid var(--line);border-radius:3px;
   color:var(--washi);padding:11px;width:100%;font-size:16px;
@@ -94,20 +96,25 @@ input.slim{padding:7px 9px;font-size:16px;}
   background-size:34px 17px;border-bottom:1px solid var(--line-2);}
 .rule{height:1px;background:linear-gradient(90deg,var(--shu),rgba(255,90,60,0) 72%);opacity:.7;}
 
-.tabs{display:flex;gap:14px;padding:0 16px;overflow-x:auto;scrollbar-width:none;
-  border-bottom:1px solid var(--line-2);}
-.tabs::-webkit-scrollbar{display:none;}
-.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--hai);
-  padding:9px 0 8px;border-radius:0;white-space:nowrap;text-align:center;}
-.tab .k{display:block;font-size:10px;line-height:1.3;opacity:.7;}
-.tab .e{display:block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;}
-.tab.on{color:var(--washi);border-bottom-color:var(--shu);}
-.tab.on .k{color:var(--shu);}
-.tabwrap{position:relative;}
-.tabwrap::after{content:"";position:absolute;top:0;right:0;bottom:1px;width:36px;pointer-events:none;
-  background:linear-gradient(90deg,rgba(11,10,12,0),rgba(11,10,12,.92));}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
+  border-top:1px solid var(--line);background:rgba(9,8,10,.94);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding:5px 4px calc(7px + env(safe-area-inset-bottom));}
+.navb{flex:1;background:none;border:none;border-radius:4px;color:var(--hai);
+  padding:7px 0 5px;position:relative;text-align:center;}
+.navb .k{display:block;font-size:17px;line-height:1.2;}
+.navb .l{display:block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;margin-top:2px;}
+.navb.on{color:var(--washi);}
+.navb.on .k{color:var(--shu);}
+.navb.on::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:20px;height:2px;border-radius:2px;background:var(--shu);}
+.ndot{position:absolute;top:5px;right:calc(50% - 19px);width:7px;height:7px;border-radius:50%;
+  background:var(--beni);border:1px solid #2A0D13;}
+.segs{display:flex;gap:8px;margin-bottom:16px;}
+.segs button{flex:1;}
 .badge{display:inline-block;background:var(--kin);color:#1A1206;border-radius:2px;
-  font-family:"IBM Plex Mono",monospace;font-size:9px;padding:1px 4px;margin-left:4px;vertical-align:2px;}
+  font-family:"IBM Plex Mono",monospace;font-size:11px;padding:1px 5px;margin-left:5px;vertical-align:1px;}
 .badge.red{background:var(--beni);color:#FFE9EC;}
 
 .hinomaru{width:86px;height:86px;border-radius:50%;position:relative;overflow:hidden;flex:none;
@@ -131,10 +138,7 @@ input.slim{padding:7px 9px;font-size:16px;}
   box-shadow:0 6px 22px -8px rgba(255,90,60,.75);animation:stamp .42s cubic-bezier(.2,1.5,.4,1);}
 @keyframes stamp{0%{transform:rotate(-16deg) scale(1.5);opacity:0;}
   55%{transform:rotate(-3deg) scale(.94);opacity:1;}100%{transform:rotate(-5deg) scale(1);}}
-.seal .hint{position:absolute;left:0;right:0;bottom:3px;font-style:normal;
-  font-family:"IBM Plex Mono",monospace;font-size:8px;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--hai);}
-.seal.mini .hint{bottom:1px;font-size:7px;letter-spacing:.1em;}
+.seal .hint{display:none;}
 
 .barrel{display:flex;align-items:flex-end;gap:3px;height:28px;}
 .tick{flex:1;border-radius:1px;}
@@ -173,7 +177,11 @@ input.slim{padding:7px 9px;font-size:16px;}
   background:linear-gradient(140deg,rgba(255,90,60,.1),rgba(255,90,60,.02));}
 .note{border-left:2px solid rgba(255,90,60,.45);padding-left:11px;}
 .chips{display:flex;flex-wrap:wrap;gap:7px;}
-.chips button{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:7px 9px;}
+.chips button{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:7px 10px;}
+/* a way into a row that doesn't require knowing about long press */
+.chev{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  border-radius:3px;color:var(--hai);font-size:18px;padding:0;
+  background:none;border:1px solid var(--line-2);}
 h1,h2{margin:0;}
 
 .sug{border:1px solid rgba(255,90,60,.28);border-radius:3px;overflow:hidden;
@@ -181,7 +189,7 @@ h1,h2{margin:0;}
 .sug button{display:block;width:100%;text-align:left;border:none;border-radius:0;
   border-bottom:1px solid var(--line-2);background:none;padding:10px 12px;}
 .sug button:last-child{border-bottom:none;}
-.sug .n{font-size:14px;} .sug .d{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--hai);}
+.sug .n{font-size:14.5px;} .sug .d{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--hai);}
 
 .meter{height:5px;border-radius:3px;background:rgba(242,237,230,.09);overflow:hidden;margin-top:5px;}
 .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--shu),var(--shu-2));}
@@ -196,10 +204,10 @@ h1,h2{margin:0;}
 .rng u.out{background:var(--alert);}
 .lab{border-bottom:1px solid var(--line-2);padding:11px 0;}
 .lab:last-child{border-bottom:none;}
-.dlt{font-family:"IBM Plex Mono",monospace;font-size:10px;padding:1px 5px;border-radius:2px;
+.dlt{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:1px 5px;border-radius:2px;
   background:rgba(242,237,230,.07);color:var(--hai);}
 
-.stchip{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+.stchip{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
   padding:3px 8px;border-radius:2px;border:1px solid currentColor;}
 .tl{border-left:1px solid rgba(255,90,60,.35);margin-left:5px;padding-left:14px;}
 .tl>div{position:relative;padding-bottom:12px;}
@@ -210,7 +218,7 @@ h1,h2{margin:0;}
 .watch{border-left:2px solid rgba(217,169,74,.45);padding-left:11px;font-size:13px;line-height:1.55;}
 .watch.hot{border-left-color:var(--alert);}
 .legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-family:"IBM Plex Mono",monospace;
-  font-size:10.5px;letter-spacing:.02em;color:var(--hai);padding:9px 12px;
+  font-size:11px;letter-spacing:.02em;color:var(--hai);padding:9px 12px;
   border:1px solid var(--line-2);border-radius:3px;background:rgba(242,237,230,.02);}
 .legend b{font-family:"Shippori Mincho",serif;font-weight:600;font-size:12.5px;margin-right:3px;}
 .lmove{border-left:2px solid var(--line);padding:9px 0 9px 12px;}
@@ -219,20 +227,34 @@ h1,h2{margin:0;}
 .lmove.mixed{border-left-color:rgba(150,141,149,.55);}
 .lmove .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
 .lmove .mk{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.04em;}
-.lmove .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;flex:none;}
+.lmove .ar{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;flex:none;}
 .lmove p{margin:4px 0 0;font-size:12.5px;line-height:1.55;color:var(--hai);}
-.lmove .yours{margin-top:6px;display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+.lmove .yours{margin-top:6px;display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;
   padding:2px 7px;border-radius:2px;background:rgba(242,237,230,.06);}
 .legal{border-left:2px solid var(--beni);padding-left:11px;font-size:13px;line-height:1.6;}
 .refact{display:flex;gap:8px;margin:2px 0 16px;}
 .refact button{flex:1;}
+.secbar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:9px 0 11px;
+  position:sticky;top:0;z-index:6;margin:0 -2px;
+  background:linear-gradient(180deg,#0C0B0E 66%,rgba(12,11,14,0));}
+.secbar::-webkit-scrollbar{display:none;}
+.secbar button{flex:none;font-family:"IBM Plex Mono",monospace;font-size:12px;padding:6px 10px;}
+.fold{border-bottom:1px solid var(--line-2);scroll-margin-top:52px;}
+.fold summary{list-style:none;cursor:pointer;padding:13px 2px;display:flex;align-items:center;gap:10px;}
+.fold summary::-webkit-details-marker{display:none;}
+.fold summary .k{font-family:"Shippori Mincho",serif;font-weight:600;font-size:15px;
+  color:var(--shu);flex:none;}
+.fold summary .l{flex:1;font-size:14px;}
+.fold summary .m{color:var(--hai);font-size:17px;transition:transform .2s;flex:none;}
+.fold[open] summary .m{transform:rotate(45deg);}
+.fold .body{padding-bottom:14px;}
 .reflist button{display:block;width:100%;text-align:left;border:none;border-radius:0;border-bottom:1px solid var(--line-2);background:none;padding:11px 4px;}
 .reflist button:last-child{border-bottom:none;}
 .name-btn{background:none;border:none;padding:0;color:inherit;font:inherit;text-align:left;
   border-bottom:1px dashed rgba(255,90,60,.4);border-radius:0;}
 .slot{display:flex;align-items:center;gap:9px;margin:16px 0 9px;}
 .slot .k{font-family:"Shippori Mincho",serif;font-size:15px;color:var(--shu);}
-.slot .l{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.18em;
+.slot .l{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--hai);}
 .slot .r{flex:1;height:1px;background:linear-gradient(90deg,rgba(255,90,60,.35),rgba(255,90,60,0));}
 
@@ -254,7 +276,7 @@ h1,h2{margin:0;}
    STORAGE
    ============================================================ */
 const KEY = "peptide-log-v1";
-const REV = "r9";
+const REV = "r10";
 const store = {
   async load(){
     try{
@@ -274,7 +296,8 @@ const store = {
 let S = { items:[], logs:[], batches:[], vials:[], labs:[], profile:{flags:[],sex:"m"}, meta:{lastExport:null}, body:[] };
 let UI = { tab:"today", date:null, modal:null, draft:null, focus:null, range:30,
            err:"", filter:"all", moreFlags:false, scanMsg:"", labGroup:"all",
-           checkView:"find", formErr:null, csel:null, trView:"dose", bodyFocus:null, hmk:null, refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
+           checkView:"find", formErr:null, csel:null, trView:"dose", bodyFocus:null, hmk:null,
+           stackView:"list", refKey:null, refFrom:null, refQ:"", refFilter:"all", prevModal:null };
 
 /* ============================================================
    NUTRIENT REFERENCE
@@ -2095,6 +2118,8 @@ function modalBody(){
     <div class="eyebrow plain mb4">Whatever units you use, stay consistent &mdash; the chart only cares about the shape.</div>
     <button class="shu wide" data-act="saveBody">Save entry</button></div>`;
 }
+const SEC_CHIP={"血":"Bloodwork","何":"What","機":"How","法":"Legal","形":"Forms",
+  "欠":"If low","注":"Watch","経":"Timeline","副":"Effects","保":"Storage","己":"Yours"};
 function refDetail(k){
   const e=REF[k];
   const named=e.t!=="supp";
@@ -2122,28 +2147,43 @@ function refDetail(k){
     </div>`;
   }
   h+=refActions(k,inStack,lib);
-  const sec=(kanji,label,body)=>`<div class="slot" style="margin:14px 0 8px"><span class="k">${kanji}</span><span class="l">${label}</span><span class="r"></span></div>${body}`;
-  h+=sec("何","what it is",`<p class="sm" style="margin:0;line-height:1.6">${esc(e.what)}</p>`);
-  h+=sec("機","how it works",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.how)}</p>`);
-  if(e.legal) h+=sec("法","where the law sits",`<div class="legal">${esc(e.legal)}</div>`);
-  if(!named){
-    if(e.forms) h+=sec("形","forms",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.forms)}</p>`);
-    if(e.lack) h+=sec("欠","if you're low",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.lack)}</p>`);
-  }
-  if(e.expect&&e.expect.length)
-    h+=sec("経","what people report, and when",`<div class="tl">${e.expect.map(([w,t])=>
-      `<div><div class="mono eyebrow plain" style="color:var(--shu)">${esc(w)}</div><div class="sm" style="line-height:1.55">${esc(t)}</div></div>`).join("")}</div>`);
+  /* Bloodwork first and open. Everything else folds, so the page ends
+     where the reading ends instead of running for a screen and a half. */
+  const secs=[];
+  const sec=(kanji,label,body,opts)=>{
+    const id="s"+secs.length;
+    secs.push([id,kanji,label]);
+    const o=opts||{};
+    return `<details class="fold" id="${id}" ${o.open?"open":""}>
+      <summary><span class="k">${kanji}</span><span class="l">${esc(label)}</span>
+        ${o.tag?`<span class="eyebrow none" style="color:${o.tagCol||"var(--hai)"}">${esc(o.tag)}</span>`:""}
+        <span class="m">+</span></summary>
+      <div class="body">${body}</div></details>`;
+  };
+  let body="";
   if(e.labs&&e.labs.length)
-    h+=sec("血","what it moves in bloodwork",labMoves(e));
-  if(e.effects&&e.effects.length)
-    h+=sec("副","reported effects",`<div class="row gap2 wrapf">${e.effects.map(x=>`<span class="pill">${esc(x)}</span>`).join("")}</div>`);
+    body+=sec("血","what it moves in bloodwork",labMoves(e),{open:1});
+  body+=sec("何","what it is",`<p class="sm" style="margin:0;line-height:1.6">${esc(e.what)}</p>`,{open:!(e.labs&&e.labs.length)});
+  body+=sec("機","how it works",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.how)}</p>`);
+  if(e.legal) body+=sec("法","where the law sits",`<div class="legal">${esc(e.legal)}</div>`,
+    e.ctrl?{tag:e.ctrl,tagCol:"var(--alert)"}:null);
+  if(!named){
+    if(e.forms) body+=sec("形","forms",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.forms)}</p>`);
+    if(e.lack) body+=sec("欠","if you're low",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.lack)}</p>`);
+  }
+  const hotN=(e.watch||[]).filter(w=>(w.flags||[]).some(f=>flags.includes(f))).length;
   if(e.watch&&e.watch.length)
-    h+=sec("注","watch for",`<div class="col gap3">${e.watch.map(w=>{
+    body+=sec("注","watch for",`<div class="col gap3">${e.watch.map(w=>{
       const hot=(w.flags||[]).some(f=>flags.includes(f));
       const fl=(w.flags||[]).filter(f=>flags.includes(f)).map(flagLC);
       return `<div class="watch ${hot?"hot":""}">${esc(w.t)}${hot?`<div class="eyebrow plain" style="margin-top:5px;color:var(--alert)">Applies to you: ${esc(fl.join(", "))}</div>`:""}</div>`;
-    }).join("")}</div>`);
-  if(e.store) h+=sec("保","storage",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.store)}</p>`);
+    }).join("")}</div>`,hotN?{tag:`${hotN} applies`,tagCol:"var(--alert)",open:1}:null);
+  if(e.expect&&e.expect.length)
+    body+=sec("経","what people report, and when",`<div class="tl">${e.expect.map(([w,t])=>
+      `<div><div class="mono eyebrow plain" style="color:var(--shu)">${esc(w)}</div><div class="sm" style="line-height:1.55">${esc(t)}</div></div>`).join("")}</div>`);
+  if(e.effects&&e.effects.length)
+    body+=sec("副","reported effects",`<div class="row gap2 wrapf">${e.effects.map(x=>`<span class="pill">${esc(x)}</span>`).join("")}</div>`);
+  if(e.store) body+=sec("保","storage",`<p class="sm muted" style="margin:0;line-height:1.6">${esc(e.store)}</p>`);
   let mine="";
   if(inStack.length){
     mine+=inStack.map(it=>{
@@ -2164,9 +2204,10 @@ function refDetail(k){
       else mine+=`<div class="eyebrow plain" style="margin-top:8px">Your ${P.date} panel doesn't include ${mk2.map(m=>MARKERS[m].label).join(", ")}.</div>`;
     }else mine+=`<div class="eyebrow plain" style="margin-top:8px">The marker${mk2.length>1?"s":""} that would tell you what this is doing: ${mk2.map(m=>MARKERS[m].label).join(", ")}. Add bloodwork and it shows here.</div>`;
   }
-  if(mine) h+=sec("己","in your data",`<div class="card gold pad2">${mine}</div>`);
-  h+=`<div class="eyebrow plain" style="margin-top:18px;line-height:1.6">Descriptive, not a recommendation. Doses, cycles, and combinations are yours to settle with a clinician or pharmacist. Where the evidence is thin this page says so, and thin evidence is a fact about the compound, not a gap in the app.</div>`;
-  return h;
+  if(mine) body+=sec("己","in your data",`<div class="card gold pad2">${mine}</div>`,{open:1});
+  const chips=`<div class="secbar">${secs.map(([id,k])=>
+    `<button data-act="jump:${id}">${k} ${SEC_CHIP[k]||""}</button>`).join("")}</div>`;
+  return chips+h+body+`<div class="eyebrow plain" style="margin-top:16px;line-height:1.6;opacity:.75">Descriptive, not a recommendation.</div>`;
 }
 /* the bloodwork block: what the compound moves, and your own number beside it */
 function labMoves(e){
@@ -2195,6 +2236,31 @@ function refActions(k,inStack,lib){
     btns.push(`<button data-act="edit:${esc(inStack[0].id)}">Edit entry</button>`);
   }
   return `<div class="refact">${btns.join("")}</div>${!inStack.length&&!lib&&e.t==="supp"?`<div class="eyebrow plain" style="margin:-8px 0 14px">Several forms of this exist. The add sheet will offer them once you start typing.</div>`:""}`;
+}
+function modalAddMenu(){
+  return `<div>${sheetHead("Add","追加")}
+    <button class="wide shu mb3" data-act="add:peptide">＋ Injectable or peptide</button>
+    <button class="wide primary mb3" data-act="add:supplement">＋ Oral or supplement</button>
+    <div class="rule mb3"></div>
+    <button class="wide mb2" data-act="addBatch">＋ Stock</button>
+    <button class="wide mb2" data-act="addPanel">＋ Bloodwork</button>
+    <button class="wide mb3" data-act="addBody">＋ Body metrics</button>
+    <div class="row gap2">
+      <button class="f1" data-act="tplImport">Import a stack</button>
+      <button class="f1" data-act="tplExport">Share yours</button>
+    </div></div>`;
+}
+function modalPrep(){
+  const d=UI.draft;
+  const days=d.prepDate?between(today(),d.prepDate):null;
+  return `<div>${sheetHead("Target date","目標")}
+    <p class="sm muted" style="margin:-6px 0 15px;line-height:1.6">Set the date you're working toward and the header counts down in weeks out, which is how most people plan backwards from a show, a shoot, or a blood draw. Leave it blank to turn it off.</p>
+    ${fieldRow("What it is","label",d.label,'placeholder="Show, shoot, next panel"')}
+    <label class="eyebrow">Date</label>
+    <input class="mb3" style="margin-top:5px" type="date" data-field="prepDate" value="${esc(d.prepDate)}">
+    ${days!=null&&days>0?`<div class="readout mb4"><b>${Math.floor(days/7)} weeks out</b>
+      <div class="eyebrow plain">${days} days from today</div></div>`:""}
+    <button class="shu wide" data-act="savePrep">Save</button></div>`;
 }
 function modalRef(){
   const k=UI.refKey, e=REF[k];
@@ -2378,7 +2444,10 @@ function viewToday(){
             <div class="display" style="font-size:19px;line-height:1.25">${esc(p.name)}</div>
             <div class="data">${l?l.dose:eff} ${esc(p.unit)}${m&&m.units>0?` &middot; ${fx(m.units)}u`:""}${p.plan?` &middot; step ${planStep(p,UI.date)}/${p.plan.length}`:""}${ph?` &middot; 週 ${ph.week}/${ph.total}`:""}</div>
           </div>
-          <button class="seal ${full?"done":""}" data-act="${full?"log":"stamp"}:${p.id}" aria-label="${full?"Edit dose":"Log dose"}">${full?"済":need>1&&dl.length?`<span class="mono" style="font-size:13px">${dl.length}/${need}</span>`:"押"}${!full&&!S.logs.length?`<i class="hint">log</i>`:""}</button>
+          <div class="row center gap2 none">
+            <button class="seal ${full?"done":""}" data-act="${full?"log":"stamp"}:${p.id}" aria-label="${full?"Edit dose":"Log dose"}">${full?"済":need>1&&dl.length?`<span class="mono" style="font-size:13px">${dl.length}/${need}</span>`:"押"}</button>
+            <button class="chev" data-act="log:${p.id}" aria-label="Open ${esc(p.name)}">&#8250;</button>
+          </div>
         </div>
         ${l&&l.site?`<div class="mono eyebrow plain mb3">${esc(l.site)}${l.time?` &middot; ${l.time}`:""}${l.note?` &mdash; ${esc(l.note)}`:""}</div>`:""}
         ${barrel(p,UI.date)}
@@ -2405,7 +2474,8 @@ function viewToday(){
           <div style="font-size:15px;font-weight:500;line-height:1.3">${esc(it.name)}</div>
           <div class="data">${l?l.dose:it.dose} ${esc(it.unit)}${it.perDay>1?` &times;${it.perDay}`:""}${it.withFood?" &middot; with food":""}${it.freq!=="daily"?` &middot; ${schedText(it)}`:""}</div>
         </div>
-        <button class="seal mini ${full?"done":""}" data-act="${full?"log":"stamp"}:${it.id}" aria-label="${full?"Edit dose":"Log dose"}">${full?"済":need>1&&dl.length?`<span class="mono" style="font-size:11px">${dl.length}/${need}</span>`:"押"}${!full&&!S.logs.length?`<i class="hint">log</i>`:""}</button>
+        <button class="seal mini ${full?"done":""}" data-act="${full?"log":"stamp"}:${it.id}" aria-label="${full?"Edit dose":"Log dose"}">${full?"済":need>1&&dl.length?`<span class="mono" style="font-size:11.5px">${dl.length}/${need}</span>`:"押"}</button>
+        <button class="chev" data-act="log:${it.id}" aria-label="Open ${esc(it.name)}">&#8250;</button>
       </div>`;
     }
     h += `</div>`;
@@ -2417,18 +2487,20 @@ function viewToday(){
    VIEW — STACK
    ============================================================ */
 function viewStack(){
-  if(!S.items.length) return `<div class="card flat pad sm muted">Nothing added yet. Use the Add buttons up top.</div>`;
+  const seg = `<div class="segs">${[["list","一覧 Stack"],["stock","在庫 Stock"],["trend","推移 Trends"]].map(([v,l])=>
+    `<button class="${(UI.stackView||"list")===v?"shu":""}" data-act="sview:${v}">${l}</button>`).join("")}</div>`;
+  if(UI.stackView==="stock") return seg+viewStock();
+  if(UI.stackView==="trend") return seg+viewTrends();
+  if(!S.items.length) return seg+`<div class="card flat pad sm muted">Nothing here yet. Add the first thing you take and the rest of the app has something to work with.
+    <div class="row gap2" style="margin-top:13px">
+      <button class="f1 shu" data-act="add:peptide">＋ Injectable</button>
+      <button class="f1 primary" data-act="add:supplement">＋ Oral</button></div></div>`;
   const f = UI.filter;
   const shown = S.items.filter(i=>f==="all"?true:f==="pep"?isPep(i):!isPep(i));
-  let h = `<div class="chips mb4">
-    ${[["all","Everything",S.items.length],["pep","Peptides",S.items.filter(isPep).length],
-       ["supp","Supplements",S.items.filter(i=>!isPep(i)).length]].map(([v,l,n])=>
-      `<button class="${f===v?"shu":""}" data-act="filter:${v}">${l} ${n}</button>`).join("")}
-    <button class="primary" data-act="add:supplement">＋ Supplement</button>
-    <button class="primary" data-act="add:peptide">＋ Peptide</button></div>`;
-  h += `<div class="row gap2 mb4">
-    <button class="f1" data-act="tplExport">Share template</button>
-    <button class="f1" data-act="tplImport">Import</button></div>`;
+  let h = seg+`<div class="chips mb4">
+    ${[["all","Everything",S.items.length],["pep","Injectable",S.items.filter(isPep).length],
+       ["supp","Oral",S.items.filter(i=>!isPep(i)).length]].map(([v,l,n])=>
+      `<button class="${f===v?"shu":""}" data-act="filter:${v}">${l} ${n}</button>`).join("")}</div>`;
   if(!shown.length) return h+`<div class="card flat pad sm muted">Nothing in this category yet.</div>`;
 
   h += `<div class="col gap3 stagger">`;
@@ -2461,14 +2533,40 @@ function viewStack(){
         ${stat("Phase",ph?(ph.on?`On ${ph.week}/${ph.total}`:"Off"):(it.active?"Open":"Paused"),ph?`${ph.daysLeft}d left`:"",ph&&!ph.on?"var(--kin)":null)}
       </div>
       ${barrel(it,today())}
+      ${supplyLine(it)}
       ${nut?`<div class="eyebrow plain" style="margin-top:9px">Checked as ${esc(nut.label)}${nut.ul?` &middot; limit ${nut.ul} ${nut.unit}/day`:""}</div>`
         :isPep(it)||refFor(it)?(it.pclass&&PCLASS[it.pclass]?`<div class="eyebrow plain" style="margin-top:9px">${esc(PCLASS[it.pclass].label)}</div>`:"")
         :`<div class="eyebrow plain" style="margin-top:9px;color:var(--kin)">Not linked to a tracked nutrient, so the nutrient checker can't see this one</div>`}
       ${it.notes?`<p class="sm muted" style="margin:11px 0 0">${esc(it.notes)}</p>`:""}
-      <button class="wide" style="margin-top:13px" data-act="toggle:${it.id}">${it.active?"Pause":"Resume"}</button>
+      <div class="row gap2" style="margin-top:13px">
+        <button class="f1" data-act="addStockFor:${it.id}">Add stock</button>
+        ${refFor(it)?`<button class="f1" data-act="ref:${esc(refFor(it))}">Reference</button>`:""}
+        <button class="f1" data-act="toggle:${it.id}">${it.active?"Pause":"Resume"}</button>
+      </div>
     </div>`;
   }
   return h+`</div>`;
+}
+
+/* What you take and how much is left are two facts about one thing. */
+function supplyLine(it){
+  const sup = supply(it);
+  const tracked = S.batches.some(b=>b.itemId===it.id)||S.vials.some(v=>v.itemId===it.id&&!v.finished);
+  if(sup.unmeasured||!tracked)
+    return `<div class="row between center" style="margin-top:11px">
+      <span class="eyebrow plain">${sup.sealed?`${sup.sealed} sealed`:"nothing in stock"}${sup.open?`, ${sup.open} open`:""}</span>
+      <button class="tiny none" data-act="addStockFor:${it.id}">Track supply</button></div>`;
+  const pct = sup.daysLeft!=null?Math.max(3,Math.min(100,Math.round(sup.daysLeft/90*100))):0;
+  const col = sup.low?"var(--kin)":"var(--hai)";
+  return `<div style="margin-top:12px">
+    <div class="row between center">
+      <span class="eyebrow plain">${sup.sealed} sealed${sup.open?`, ${sup.open} open`:""}</span>
+      <span class="data" style="color:${col}">${sup.daysLeft!=null?`${sup.daysLeft} days left`:"—"}</span>
+    </div>
+    <div class="meter"><i class="${sup.low?"near":""}" style="width:${pct}%"></i></div>
+    ${sup.low&&sup.orderBy?`<div class="eyebrow plain" style="margin-top:6px;color:var(--kin)">Order by ${sup.orderBy} to keep ${sup.lead} days of lead</div>`
+      :sup.costPerDose?`<div class="eyebrow plain" style="margin-top:6px">$${fx(sup.costPerDose,2)} a dose</div>`:""}
+  </div>`;
 }
 
 /* ============================================================
@@ -2662,10 +2760,12 @@ function viewLabs(){
    VIEW — CHECK
    ============================================================ */
 function viewCheck(){
-  const seg = `<div class="row gap2 mb4">
-    <button class="f1 ${UI.checkView!=="labs"?"shu":""}" data-act="cview:find">照合 Findings</button>
-    <button class="f1 ${UI.checkView==="labs"?"shu":""}" data-act="cview:labs">血液 Bloodwork</button></div>`;
+  const seg = `<div class="segs">
+    <button class="${UI.checkView==="find"?"shu":""}" data-act="cview:find">照合 Findings</button>
+    <button class="${UI.checkView==="labs"?"shu":""}" data-act="cview:labs">血液 Bloodwork</button>
+    <button class="${UI.checkView==="horm"?"shu":""}" data-act="cview:horm">内分 Hormones</button></div>`;
   if(UI.checkView==="labs") return seg+viewLabs();
+  if(UI.checkView==="horm") return seg+viewHormones();
   const findings = analyze();
   const totals = nutrientTotals();
   const flags = S.profile?.flags||[];
@@ -2838,12 +2938,10 @@ function viewHormones(){
 }
 
 function viewTrends(){
-  const seg = `<div class="row gap2 mb4">
-    <button class="f1 ${UI.trView==="dose"?"shu":""}" data-act="trview:dose">投与 Doses</button>
-    <button class="f1 ${UI.trView==="body"?"shu":""}" data-act="trview:body">身体 Body</button>
-    <button class="f1 ${UI.trView==="horm"?"shu":""}" data-act="trview:horm">内分 Hormones</button></div>`;
+  const seg = `<div class="segs">
+    <button class="${UI.trView!=="body"?"shu":""}" data-act="trview:dose">投与 Doses</button>
+    <button class="${UI.trView==="body"?"shu":""}" data-act="trview:body">身体 Body</button></div>`;
   if(UI.trView==="body") return seg+viewBody();
-  if(UI.trView==="horm") return seg+viewHormones();
   if(!S.items.length) return seg+`<div class="card flat pad sm muted">Trends appear once you've logged a few doses.</div>`;
   const fid = UI.focus||S.items[0].id;
   const it = S.items.find(x=>x.id===fid);
@@ -3367,55 +3465,65 @@ function renderModal(){
     : UI.modal==="body"?modalBody()
     : UI.modal==="ref"?modalRef()
     : UI.modal==="reflist"?modalRefList()
-    : UI.modal==="panel"?modalPanel() : "";
+    : UI.modal==="panel"?modalPanel()
+    : UI.modal==="addMenu"?modalAddMenu()
+    : UI.modal==="prep"?modalPrep() : "";
   el.innerHTML = `<div class="sheet" data-act="close-bg"><div role="dialog" aria-modal="true">${body}</div></div>`;
 }
 
 /* ============================================================
    SHELL
    ============================================================ */
+/* Four destinations, at the bottom, in thumb reach. Trends moved inside the
+   two tabs that own the data it charts. Stock folded into Stack. */
+const NAV = [["today","Today","今"],["stack","Stack","薬"],
+             ["check","Check","照"],["ref","Learn","参"]];
+const TAB_HEAD = {
+  today:["今日","what's due"], stack:["薬 一覧","your stack"],
+  check:["照合","checks and bloodwork"], ref:["参照","reference"]
+};
 function render(){
   LOGIX = null;
   const al = lowAlerts().length;
   const findings = analyze();
   const concerns = findings.filter(f=>f.sev==="concern").length;
-  const notes = findings.filter(f=>f.sev==="note").length;
-  const tabs = [["today","Today","今日",0],["stack","Stack","一覧",0],
-                ["stock","Stock","在庫",al],
-                ["check","Check","照合",concerns||notes],["trends","Trends","推移",0],
-                ["ref","Reference","参照",0]];
+  const [hk,hl] = TAB_HEAD[UI.tab]||TAB_HEAD.today;
   document.getElementById("app").innerHTML = `
     <div class="crest">
-      <div class="wrap row between end" style="padding:20px 16px 13px">
-        <div>
-          <div class="eyebrow">記録 &middot; peptides &amp; supplements</div>
-          <h1 class="display" style="font-size:30px;line-height:1.05;margin-top:2px">
-            The Stack<span style="color:var(--shu)">.</span></h1>
+      <div class="wrap row between end" style="padding:18px 16px 12px">
+        <div style="min-width:0">
+          <div class="eyebrow">${esc(hl)}</div>
+          <h1 class="display" style="font-size:26px;line-height:1.1;margin-top:3px">${hk}</h1>
         </div>
-        <div class="col gap2 none">
-          <button class="shu tiny" data-act="add:peptide">＋ Peptide</button>
-          <button class="primary tiny" data-act="add:supplement">＋ Supplement</button>
-        </div>
+        <div class="row gap2 none center">${prepChip()}
+          <button class="shu tiny" data-act="addMenu">＋ Add</button></div>
       </div>
     </div>
-    <div class="tabwrap"><div class="tabs" role="tablist">${tabs.map(([id,l,k,n])=>
-      `<button class="tab ${UI.tab===id?"on":""}" role="tab" aria-selected="${UI.tab===id}" data-act="tab:${id}">
-        <span class="k kanji">${k}</span>
-        <span class="e">${l}${n?`<span class="badge ${id==="check"&&concerns?"red":""}">${n}</span>`:""}</span>
-      </button>`).join("")}</div></div>
     ${UI.err?`<div class="wrap" style="padding-top:12px"><div class="bad">${esc(UI.err)}</div></div>`:""}
-    <div class="wrap" style="padding-top:18px;padding-bottom:26px">
-      ${UI.tab==="today"?viewToday():UI.tab==="stack"?viewStack()
-        :UI.tab==="stock"?viewStock()
+    <div class="wrap" style="padding-top:16px;padding-bottom:12px">
+      ${UI.tab==="stack"?viewStack()
         :UI.tab==="check"?viewCheck()
-        :UI.tab==="ref"?viewRef():viewTrends()}
+        :UI.tab==="ref"?viewRef():viewToday()}
     </div>
-    <div class="wrap eyebrow plain" style="padding-bottom:28px;line-height:1.6;opacity:.8">
-      A record of what you did and a check against published limits — not guidance on what to take.
+    <div class="wrap eyebrow plain" style="padding-bottom:22px;line-height:1.6;opacity:.8">
+      A record of what you did and a check against published limits, not guidance on what to take.
       Doses, schedules, and storage windows are yours to set with your clinician.
       <div style="margin-top:9px;opacity:.8">改訂 ${REV} &middot; stack-log-${REV}.html</div>
-    </div>`;
+    </div>
+    <nav class="nav" role="tablist" aria-label="Sections">${NAV.map(([id,l,k])=>{
+      const dot = id==="check"?concerns:id==="stack"?al:0;
+      return `<button class="navb ${UI.tab===id?"on":""}" role="tab" aria-selected="${UI.tab===id}" data-act="tab:${id}">
+        ${dot?`<span class="ndot" aria-label="${dot} need${dot===1?"s":""} attention"></span>`:""}
+        <span class="k kanji">${k}</span><span class="l">${l}</span></button>`;}).join("")}</nav>`;
   renderModal();
+}
+/* weeks out, when a target date is set. The unit people actually think in. */
+function prepChip(){
+  const d=S.profile&&S.profile.prepDate;
+  if(!d||d<today()) return "";
+  const days=between(today(),d), w=Math.floor(days/7);
+  return `<button class="tiny none" data-act="prep" style="font-family:'IBM Plex Mono',monospace">
+    ${w>0?`${w}w`:`${days}d`} out</button>`;
 }
 
 /* ============================================================
@@ -3474,11 +3582,16 @@ document.addEventListener("click", async e => {
     if((UI.modal==="ref"||UI.modal==="reflist")&&UI.prevModal){ const p=UI.prevModal; UI.prevModal=null; UI.modal=p.m; UI.draft=p.d; return renderModal(); }
     UI.prevModal=null; UI.modal=null; UI.draft=null; UI.scanMsg=""; return renderModal(); }
   if(act==="tab"){
+    /* the old flat tabs still resolve, so every deep link in the app keeps working */
     if(a==="labs"){ UI.tab="check"; UI.checkView="labs"; }
-    else UI.tab=a;
+    else if(a==="horm"){ UI.tab="check"; UI.checkView="horm"; }
+    else if(a==="stock"){ UI.tab="stack"; UI.stackView="stock"; }
+    else if(a==="trends"){ UI.tab="stack"; UI.stackView="trend"; }
+    else { UI.tab=a; if(a==="check") UI.checkView=UI.checkView||"find"; }
+    scrollTop();
     return render();
   }
-  if(act==="cview"){ UI.checkView=a; return render(); }
+  if(act==="cview"){ UI.checkView=a; scrollTop(); return render(); }
   if(act==="csel"){ UI.csel=Number(a); return render(); }
   if(act==="trview"){ UI.trView=a; return render(); }
   if(act==="refList"){
@@ -3486,6 +3599,11 @@ document.addEventListener("click", async e => {
     if(UI.modal!=="ref"&&UI.modal!=="reflist") UI.prevModal={m:UI.modal,d:UI.draft};
     UI.modal="reflist"; return renderModal(); }
   if(act==="refFilter"){ UI.refFilter=a; return UI.modal?renderModal():render(); }
+  if(act==="jump"){
+    const el=document.getElementById(a);
+    if(el){ el.open=true; el.scrollIntoView({behavior:"smooth",block:"start"}); }
+    return;
+  }
   if(act==="refBack"){ UI.refKey=null; UI.refFrom=null; scrollTop(); return render(); }
   if(act==="ref"){
     const key=raw.slice(4);
@@ -3516,6 +3634,22 @@ document.addEventListener("click", async e => {
     return renderModal();
   }
   if(act==="bfocus"){ UI.bodyFocus=a; return render(); }
+  if(act==="sview"){ UI.stackView=a; scrollTop(); return render(); }
+  if(act==="addMenu"){ UI.modal="addMenu"; return renderModal(); }
+  if(act==="addStockFor"){
+    const it=S.items.find(x=>x.id===a); if(!it) return;
+    UI.prevModal=null; UI.modal="batch";
+    UI.draft={id:uid(),itemId:it.id,mg:"",ml:"",servings:"",sealed:1,
+      form:it.form==="premix"?"premix":"",
+      addedDate:today(),lot:"",source:"",location:"",cost:""};
+    return renderModal();
+  }
+  if(act==="prep"){ UI.modal="prep"; UI.draft={prepDate:S.profile.prepDate||"",label:S.profile.prepLabel||""}; return renderModal(); }
+  if(act==="savePrep"){
+    S.profile={...S.profile,prepDate:D.prepDate||"",prepLabel:D.label||""};
+    commit(`Target date ${D.prepDate?"set":"cleared"}`);
+    UI.modal=null; UI.draft=null; return render();
+  }
   if(act==="hmk"){ UI.hmk=a; return render(); }
   if(act==="addBody"){
     UI.modal="body";
@@ -3923,6 +4057,8 @@ document.addEventListener("keydown", e => {
 let swX=null, swY=null;
 document.addEventListener("touchstart", e => {
   if(UI.modal||UI.tab!=="today"){ swX=null; return; }
+  /* don't steal the gesture from anything that scrolls sideways of its own */
+  if(e.target.closest&&e.target.closest(".chips,.secbar,.nav,.barrel")){ swX=null; return; }
   swX=e.touches[0].clientX; swY=e.touches[0].clientY;
 },{passive:true});
 document.addEventListener("touchend", e => {
